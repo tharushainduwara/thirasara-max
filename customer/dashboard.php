@@ -12,7 +12,7 @@ require_once __DIR__ . '/../includes/header.php';
 
 <div class="mb-8">
     <h1 class="text-3xl font-bold text-gray-900 mb-1">Customer Portal</h1>
-    <p class="text-gray-600">Welcome, <span class="font-semibold text-primary-600"><?php echo htmlspecialchars($currentUser['name']); ?></span> (<?php echo htmlspecialchars($currentUser['email']); ?>)</p>
+    <p class="text-gray-600">Welcome, <span class="font-semibold text-primary-600"><?php echo htmlspecialchars($currentUser['name']); ?></span></p>
 </div>
 
 <div class="bg-white rounded-2xl border border-gray-200 p-8 text-center shadow-sm">

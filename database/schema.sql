@@ -8,13 +8,14 @@ USE `thirasara_max_db`;
 -- ------------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `users` (
     `id` INT AUTO_INCREMENT PRIMARY KEY,
-    `name` VARCHAR(150) NOT NULL,
-    `email` VARCHAR(150) NOT NULL UNIQUE,
-    `password` VARCHAR(255) NOT NULL,
-    `phone` VARCHAR(20) NULL,
+    `name` VARCHAR(100) NOT NULL,
+    `email` VARCHAR(100) NOT NULL UNIQUE,
+    `password` VARCHAR(255) NULL,
+    `phone` VARCHAR(10) NULL,
     `address` TEXT NULL,
     `role` ENUM('customer', 'staff', 'admin') NOT NULL DEFAULT 'customer',
     `status` ENUM('active', 'inactive', 'suspended') NOT NULL DEFAULT 'active',
+    `google_id` VARCHAR(64) NULL UNIQUE,
     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
