@@ -1,0 +1,17 @@
+# Environment variables
+.env
+
+# Composer & Node dependencies
+/vendor/
+/node_modules/
+
+# Uploaded media files
+/assets/uploads/*
+!/assets/uploads/.gitkeep
+!/assets/uploads/products/.gitkeep
+!/assets/uploads/repairs/.gitkeep
+!/assets/uploads/invoices/.gitkeep
+
+# OS generated files
+.DS_Store
+Thumbs.db
