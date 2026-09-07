@@ -15,15 +15,15 @@ $dotenv->load();
 // Application Constants
 define('APP_NAME', 'Thirasara Max Mobile');
 define('APP_TAGLINE', 'Business Automation System');
-define('APP_URL', 'http://localhost/thirasara-max-mobile');
+define('APP_URL', 'http://localhost/thirasara-max');
 define('APP_VERSION', '1.0.0');
 
 // Database Settings
-define('DB_HOST', 'localhost');
-define('DB_USER', 'root');
-define('DB_PASS', '');
-define('DB_NAME', 'thirasara_max_db');
-define('DB_PORT', '3306');
+define('DB_HOST', $_ENV['DB_HOST']);
+define('DB_USER', $_ENV['DB_USER']);
+define('DB_PASS', $_ENV['DB_PASS']);
+define('DB_NAME', $_ENV['DB_NAME']);
+define('DB_PORT', $_ENV['DB_PORT']);
 
 // Session Initialization
 if (session_status() === PHP_SESSION_NONE) {
