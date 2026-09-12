@@ -1,3 +1,0 @@
-<?php
-// Product Catalogue Management
-
