@@ -13,15 +13,12 @@ require_once __DIR__ . '/vendor/autoload.php';
 use Google\Client as GoogleClient;
 use Google\Service\Oauth2;
 
-
 // REDIRECT IF ALREADY LOGGED IN
-
 if (isLoggedIn()) {
     redirectBasedOnRole($_SESSION['user_role']);
 }
 
 // GOOGLE CLIENT CONFIGURATION
-
 $client = new GoogleClient();
 
 $client->setClientId($_ENV['GOOGLE_CLIENT_ID']);
@@ -33,9 +30,7 @@ $client->addScope('email');
 $client->addScope('profile');
 
 // REDIRECT USER TO GOOGLE
-
 if (!isset($_GET['code'])) {
-
     $authUrl = $client->createAuthUrl();
 
     header('Location: ' . $authUrl);
@@ -43,73 +38,42 @@ if (!isset($_GET['code'])) {
 }
 
 // HANDLE GOOGLE CALLBACK
-
 try {
-
     $code = $_GET['code'];
 
     // Exchange authorization code for access token
     $token = $client->fetchAccessTokenWithAuthCode($code);
 
     if (isset($token['error'])) {
-
-        throw new Exception(
-            $token['error_description']
-            ?? 'Google authentication failed.'
-        );
+        throw new Exception($token['error_description'] ?? 'Google authentication failed.');
     }
 
     $client->setAccessToken($token);
 
     // GET GOOGLE USER INFORMATION
-
     $oauth = new Oauth2($client);
 
     $googleUser = $oauth->userinfo->get();
 
     $googleId = trim((string) $googleUser->getId());
-    $name     = trim((string) $googleUser->getName());
-    $email    = strtolower(
-        trim((string) $googleUser->getEmail())
-    );
+    $name = trim((string) $googleUser->getName());
+    $email = strtolower(trim((string) $googleUser->getEmail()));
 
     // VALIDATE GOOGLE DATA
-
-    if (
-        empty($googleId) ||
-        empty($name) ||
-        empty($email)
-    ) {
-        throw new Exception(
-            'Unable to retrieve Google account information.'
-        );
+    if (empty($googleId) || empty($name) || empty($email)) {
+        throw new Exception('Unable to retrieve Google account information.');
     }
 
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-
-        throw new Exception(
-            'Invalid email address returned by Google.'
-        );
+        throw new Exception('Invalid email address returned by Google.');
     }
 
     // DATABASE CONNECTION
-
     $db = Database::getConnection();
 
-
     // FIND USER BY GOOGLE ID
-
     $stmt = $db->prepare("
-        SELECT
-            id,
-            name,
-            email,
-            password,
-            phone,
-            address,
-            role,
-            status,
-            google_id
+        SELECT id, name, email, password, phone, address, role, status, google_id
         FROM users
         WHERE google_id = ?
         LIMIT 1
@@ -119,22 +83,10 @@ try {
 
     $user = $stmt->fetch();
 
-
-    // IF GOOGLE ID DOESN'T EXIST,
-
+    // IF GOOGLE ID DOESN'T EXIST, TRY MATCHING BY EMAIL
     if (!$user) {
-
         $stmt = $db->prepare("
-            SELECT
-                id,
-                name,
-                email,
-                password,
-                phone,
-                address,
-                role,
-                status,
-                google_id
+            SELECT id, name, email, password, phone, address, role, status, google_id
             FROM users
             WHERE email = ?
             LIMIT 1
@@ -145,120 +97,52 @@ try {
         $user = $stmt->fetch();
     }
 
-
     // EXISTING USER
-
     if ($user) {
-
         // Check account status
         if ($user['status'] !== 'active') {
-
             setFlash(
                 'error',
-                'Your account is currently ' .
-                htmlspecialchars($user['status']) .
-                '. Please contact Thirasara Max.'
+                'Your account is currently ' . htmlspecialchars($user['status']) . '. Please contact Thirasara Max.'
             );
 
-            header(
-                'Location: ' .
-                APP_URL .
-                '/login.php'
-            );
-
+            header('Location: ' . APP_URL . '/login.php');
             exit;
         }
 
-
         // Link Google account if email already exists
-
-        if (
-            empty($user['google_id']) ||
-            $user['google_id'] !== $googleId
-        ) {
-
-            $update = $db->prepare("
-                UPDATE users
-                SET google_id = ?
-                WHERE id = ?
-            ");
-
-            $update->execute([
-                $googleId,
-                $user['id']
-            ]);
+        if (empty($user['google_id']) || $user['google_id'] !== $googleId) {
+            $update = $db->prepare("UPDATE users SET google_id = ? WHERE id = ?");
+            $update->execute([$googleId, $user['id']]);
         }
 
-
         // Prevent session fixation
-
         session_regenerate_id(true);
 
-
         // Store authenticated user
-
         $_SESSION['user_id'] = $user['id'];
         $_SESSION['user_name'] = $user['name'];
         $_SESSION['user_email'] = $user['email'];
         $_SESSION['user_role'] = $user['role'];
 
-
-        setFlash(
-            'success',
-            'Welcome back, ' .
-            htmlspecialchars($user['name']) .
-            '!'
-        );
-
+        setFlash('success', 'Welcome back, ' . htmlspecialchars($user['name']) . '!');
 
         // Redirect based on role
         redirectBasedOnRole($user['role']);
     }
 
-
-
     // CREATE NEW GOOGLE USER
-
-    /*
-     * Google users do not need a local password.
-     * password is NULL for Google-only accounts.
-     */
-
     $stmt = $db->prepare("
-        INSERT INTO users
-        (
-            name,
-            email,
-            password,
-            google_id,
-            role,
-            status
-        )
-        VALUES
-        (
-            ?,
-            ?,
-            NULL,
-            ?,
-            'customer',
-            'active'
-        )
+        INSERT INTO users (name, email, password, google_id, role, status)
+        VALUES (?, ?, NULL, ?, 'customer', 'active')
     ");
 
-    $stmt->execute([
-        $name,
-        $email,
-        $googleId
-    ]);
-
+    $stmt->execute([$name, $email, $googleId]);
 
     // Get newly created user ID
     $userId = (int) $db->lastInsertId();
 
-
-
     // CREATE SESSION
-
     session_regenerate_id(true);
 
     $_SESSION['user_id'] = $userId;
@@ -266,42 +150,18 @@ try {
     $_SESSION['user_email'] = $email;
     $_SESSION['user_role'] = 'customer';
 
-
-    setFlash(
-        'success',
-        'Welcome to Thirasara Max, ' .
-        htmlspecialchars($name) .
-        '!'
-    );
-
-
+    setFlash('success', 'Welcome to Thirasara Max, ' . htmlspecialchars($name) . '!');
 
     // REDIRECT CUSTOMER
-
     redirectBasedOnRole('customer');
 
-
 } catch (Throwable $e) {
-
     // Log actual error
-    error_log(
-        'Google Login Error: ' .
-        $e->getMessage()
-    );
-
+    error_log('Google Login Error: ' . $e->getMessage());
 
     // Safe message for user
-    setFlash(
-        'error',
-        'Unable to sign you in with Google. Please try again.'
-    );
+    setFlash('error', 'Unable to sign you in with Google. Please try again.');
 
-
-    header(
-        'Location: ' .
-        APP_URL .
-        '/login.php'
-    );
-
+    header('Location: ' . APP_URL . '/login.php');
     exit;
 }

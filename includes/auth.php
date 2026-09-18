@@ -1,17 +1,16 @@
 <?php
-/**
- * Authentication & Role-Based Access Control (RBAC) Module
- * Supports: Customer, Staff/Technician, Administrator/Shop Owner
- */
+/* Authentication & Role-Based Access Control (RBAC) Module*/
 
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../config/database.php';
 
-function isLoggedIn(): bool {
+function isLoggedIn(): bool
+{
     return isset($_SESSION['user_id']) && !empty($_SESSION['user_id']);
 }
 
-function getCurrentUser(): ?array {
+function getCurrentUser(): ?array
+{
     if (!isLoggedIn()) {
         return null;
     }
@@ -23,11 +22,13 @@ function getCurrentUser(): ?array {
     ];
 }
 
-function hasRole(string $role): bool {
+function hasRole(string $role): bool
+{
     return isLoggedIn() && isset($_SESSION['user_role']) && $_SESSION['user_role'] === $role;
 }
 
-function requireAuth(array $allowedRoles = []): void {
+function requireAuth(array $allowedRoles = []): void
+{
     if (!isLoggedIn()) {
         $_SESSION['flash_error'] = 'Please log in to access this page.';
         header('Location: ' . APP_URL . '/login.php');
@@ -40,7 +41,8 @@ function requireAuth(array $allowedRoles = []): void {
     }
 }
 
-function redirectBasedOnRole(string $role): void {
+function redirectBasedOnRole(string $role): void
+{
     switch ($role) {
         case 'admin':
             header('Location: ' . APP_URL . '/admin/dashboard.php');
@@ -56,13 +58,15 @@ function redirectBasedOnRole(string $role): void {
     exit;
 }
 
-function getCsrfToken(): string {
+function getCsrfToken(): string
+{
     if (empty($_SESSION['csrf_token'])) {
         $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
     }
     return $_SESSION['csrf_token'];
 }
 
-function verifyCsrfToken(?string $token): bool {
+function verifyCsrfToken(?string $token): bool
+{
     return isset($_SESSION['csrf_token']) && hash_equals($_SESSION['csrf_token'], $token ?? '');
 }
