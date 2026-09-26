@@ -10,71 +10,67 @@ document.addEventListener('DOMContentLoaded', function () {
 
 /* PUBLIC NAVBAR — MOBILE MENU TOGGLE */
 document.addEventListener('DOMContentLoaded', function () {
-    var btn  = document.getElementById('mobile-menu-btn');
-    var menu = document.getElementById('mobile-menu');
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest('#mobile-menu-btn');
+        if (!btn) return;
 
-    if (!btn || !menu) return;
+        var menu = document.getElementById('mobile-menu');
+        if (!menu) return;
 
-    /* Prevent double-binding if header.php already attached a listener */
-    if (btn.dataset.menuBound) return;
-    btn.dataset.menuBound = '1';
-
-    btn.addEventListener('click', function () {
         var isOpen = !menu.classList.contains('hidden');
-
         menu.classList.toggle('hidden', isOpen);
-
         btn.setAttribute('aria-expanded', isOpen ? 'false' : 'true');
 
         /* Swap icon */
         btn.innerHTML = isOpen
-            ? '<i data-lucide="menu"  class="w-6 h-6"></i>'
-            : '<i data-lucide="x"    class="w-6 h-6"></i>';
+            ? '<i data-lucide="menu" class="w-6 h-6"></i>'
+            : '<i data-lucide="x" class="w-6 h-6"></i>';
 
-        if (typeof lucide !== 'undefined') lucide.createIcons();
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
     });
 });
 
 
-/*  ADMIN SIDEBAR — MOBILE SLIDE-IN / OVERLAY */
+/* ADMIN SIDEBAR — MOBILE SLIDE-IN / OVERLAY */
 document.addEventListener('DOMContentLoaded', function () {
-    var sidebar  = document.getElementById('admin-sidebar');
-    var overlay  = document.getElementById('sidebar-overlay');
-    var openBtn  = document.getElementById('sidebar-open-btn');
-    var closeBtn = document.getElementById('sidebar-close-btn');
-
-    if (!sidebar) return;               /* Not an admin page */
-    if (sidebar.dataset.sidebarBound) return;
-    sidebar.dataset.sidebarBound = '1';
+    var sidebar = document.getElementById('admin-sidebar');
+    var overlay = document.getElementById('sidebar-overlay');
+    if (!sidebar) return; /* Not an admin page */
 
     function openSidebar() {
         sidebar.classList.remove('-translate-x-full');
+        sidebar.classList.add('translate-x-0');
         if (overlay) overlay.classList.remove('hidden');
         document.body.classList.add('overflow-hidden');
     }
 
     function closeSidebar() {
+        sidebar.classList.remove('translate-x-0');
         sidebar.classList.add('-translate-x-full');
         if (overlay) overlay.classList.add('hidden');
         document.body.classList.remove('overflow-hidden');
     }
 
-    function applyResponsive() {
-        if (window.innerWidth < 1024) {
-            sidebar.classList.add('-translate-x-full', 'fixed', 'inset-y-0', 'left-0');
-        } else {
-            sidebar.classList.remove('-translate-x-full', 'fixed', 'inset-y-0', 'left-0');
-            if (overlay) overlay.classList.add('hidden');
-            document.body.classList.remove('overflow-hidden');
+    document.addEventListener('click', function (e) {
+        if (e.target.closest('#sidebar-open-btn')) {
+            e.preventDefault();
+            openSidebar();
+            return;
         }
-    }
+        if (e.target.closest('#sidebar-close-btn') || e.target.closest('#sidebar-overlay')) {
+            e.preventDefault();
+            closeSidebar();
+            return;
+        }
+    });
 
-    if (openBtn)  openBtn.addEventListener('click', openSidebar);
-    if (closeBtn) closeBtn.addEventListener('click', closeSidebar);
-    if (overlay)  overlay.addEventListener('click', closeSidebar);
-
-    applyResponsive();
-    window.addEventListener('resize', applyResponsive);
+    window.addEventListener('resize', function () {
+        if (window.innerWidth >= 1024) {
+            closeSidebar();
+        }
+    });
 });
 
 

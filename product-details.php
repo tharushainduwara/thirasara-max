@@ -457,7 +457,6 @@ foreach ($specifications as $spec) {
 
                         <div class="p-6 sm:p-8">
                             <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-
                                 <?php foreach ($groupedSpecs as $groupName => $groupSpecs): ?>
                                     <div class="rounded-2xl border border-gray-200 overflow-hidden">
                                         <div class="px-5 py-4 bg-gray-50 border-b border-gray-200">
@@ -480,7 +479,6 @@ foreach ($specifications as $spec) {
                                         </div>
                                     </div>
                                 <?php endforeach; ?>
-
                             </div>
                         </div>
                     </div>

@@ -179,7 +179,7 @@ function formatPaymentMethod(string $method): string
     return match ($method) {
         'cash'          => 'Cash on Delivery',
         'bank_transfer' => 'Bank Transfer',
-        'stripe'        => 'Card Payment',
+        'payhere'       => 'PayHere (Cards & Wallets)',
         'paypal'        => 'PayPal',
         default         => ucwords(str_replace('_', ' ', $method))
     };

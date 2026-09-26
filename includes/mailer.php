@@ -22,14 +22,19 @@ function sendPasswordResetEmail(
         $mail->Host = $_ENV['MAIL_HOST'] ?? 'smtp.gmail.com';
         $mail->SMTPAuth = true;
 
-        $mail->Username = $_ENV['MAIL_USERNAME'] ?? '';
-        $mail->Password = $_ENV['MAIL_PASSWORD'] ?? '';
+        $encryption = strtolower($_ENV['MAIL_ENCRYPTION'] ?? 'tls');
+        $port = (int) ($_ENV['MAIL_PORT'] ?? ($encryption === 'ssl' ? 465 : 587));
 
-        $mail->SMTPSecure =
-            PHPMailer::ENCRYPTION_STARTTLS;
+        $mail->Username = trim($_ENV['MAIL_USERNAME'] ?? '');
+        $mail->Password = str_replace(' ', '', trim($_ENV['MAIL_PASSWORD'] ?? ''));
 
-        $mail->Port =
-            (int) ($_ENV['MAIL_PORT'] ?? 587);
+        if ($encryption === 'ssl' || $port === 465) {
+            $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
+        } else {
+            $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+        }
+
+        $mail->Port = $port;
 
 
         // Sender

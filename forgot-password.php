@@ -45,10 +45,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // Generate a secure reset token.
                 $token = bin2hex(random_bytes(32));
 
-                // Remove old reset tokens for this user.
-                $deleteStmt = $db->prepare("DELETE FROM password_resets WHERE user_id = ?");
-                $deleteStmt->execute([$user['id']]);
-
                 // Store token and set expiry using MySQL time.
                 $insertStmt = $db->prepare("
                     INSERT INTO password_resets (user_id, token, expires_at)
@@ -68,10 +64,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 if (!$emailSent) {
                     error_log('Failed to send password reset email to: ' . $user['email']);
+                    setFlash('error', 'Unable to send the password reset email due to an email server error. Please verify your mail configuration.');
+                } else {
+                    setFlash('success', 'If an account exists with that email address, a password reset link has been sent.');
                 }
+            } else {
+                setFlash('success', 'If an account exists with that email address, a password reset link has been sent.');
             }
-
-            setFlash('success', 'If an account exists with that email address, a password reset link has been sent.');
         } catch (Exception $e) {
             error_log('Forgot Password Error: ' . $e->getMessage());
 

@@ -99,7 +99,7 @@ $_sidebarScript === $file && $_sidebarDir === 'admin';
 
 <aside
     id="admin-sidebar"
-    class="w-64 bg-brand-dark flex flex-col min-h-screen sticky top-0 flex-shrink-0 transition-transform duration-300 z-40">
+    class="fixed inset-y-0 left-0 z-40 w-64 bg-brand-dark flex flex-col min-h-screen transition-transform duration-300 transform -translate-x-full lg:translate-x-0 lg:static lg:inset-auto flex-shrink-0">
 
     <!--LOGO / BRAND -->
     <div class="flex items-center gap-3 px-5 h-20 border-b border-brand-border flex-shrink-0">

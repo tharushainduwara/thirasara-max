@@ -137,10 +137,10 @@ if (count($checkoutItems) !== count($productIds)) {
 
 $COD_FEE = 350.00;
 $paymentMethods = [
-    'cash'          => ['label' => 'Cash on Delivery', 'fee' => $COD_FEE],
-    'bank_transfer' => ['label' => 'Bank Transfer',    'fee' => 0.00],
-    'stripe'        => ['label' => 'Card Payment',     'fee' => 0.00],
-    'paypal'        => ['label' => 'PayPal',           'fee' => 0.00]
+    'cash'          => ['label' => 'Cash on Delivery',             'fee' => $COD_FEE],
+    'bank_transfer' => ['label' => 'Bank Transfer',                'fee' => 0.00],
+    'payhere'       => ['label' => 'PayHere (Cards & Wallets)',    'fee' => 0.00],
+    'paypal'        => ['label' => 'PayPal',                       'fee' => 0.00]
 ];
 
 $shippingAddress = trim($_POST['shipping_address'] ?? ($user['address'] ?? ''));
@@ -336,7 +336,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $db->commit();
 
-        unset($_SESSION['cart'], $_SESSION['checkout_csrf']);
+        unset($_SESSION['checkout_csrf']);
 
         $_SESSION['last_order'] = [
             'id'           => $orderId,
@@ -344,6 +344,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'total_amount' => $totalAmount
         ];
 
+        // Route online payments to respective gateway handlers
+        if ($paymentMethod === 'payhere') {
+            header('Location: ' . APP_URL . '/payments/payhere-init.php?order_id=' . $orderId);
+            exit;
+        }
+
+        if ($paymentMethod === 'paypal') {
+            header('Location: ' . APP_URL . '/payments/paypal-init.php?order_id=' . $orderId);
+            exit;
+        }
+
+        // Cash on delivery / Bank Transfer
+        unset($_SESSION['cart']);
         setFlash('success', 'Your order has been placed successfully.');
         header('Location: ' . APP_URL . '/customer/orders.php?order=' . urlencode($orderNumber));
         exit;
@@ -542,16 +555,19 @@ $totalAmount = $subtotal + $shipping + $paymentFee;
                                     </div>
                                 </label>
 
-                                <!-- Stripe -->
-                                <label class="payment-option flex items-center gap-4 p-4 rounded-xl border cursor-pointer transition hover:border-brand-red hover:bg-red-50">
-                                    <input type="radio" name="payment_method" value="stripe" <?= $paymentMethod === 'stripe' ? 'checked' : '' ?>
-                                        class="w-4 h-4 accent-brand-red">
-                                    <div class="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center text-gray-700">
+                                <!-- PayHere (Sri Lanka Gateway) -->
+                                <label class="payment-option flex items-center gap-4 p-4 rounded-xl border cursor-pointer transition hover:border-teal-500 hover:bg-teal-50/40">
+                                    <input type="radio" name="payment_method" value="payhere" <?= $paymentMethod === 'payhere' ? 'checked' : '' ?>
+                                        class="w-4 h-4 accent-teal-600">
+                                    <div class="w-10 h-10 rounded-lg bg-teal-50 flex items-center justify-center text-teal-600">
                                         <i data-lucide="credit-card" class="w-5 h-5"></i>
                                     </div>
                                     <div class="flex-1">
-                                        <div class="font-semibold text-gray-900">Card Payment</div>
-                                        <div class="text-xs text-gray-500 mt-1">Secure online payment via Stripe.</div>
+                                        <div class="flex items-center gap-2">
+                                            <span class="font-semibold text-gray-900">PayHere (Sri Lanka)</span>
+                                            <span class="text-[10px] uppercase font-bold bg-teal-100 text-teal-800 px-1.5 py-0.5 rounded">LKR</span>
+                                        </div>
+                                        <div class="text-xs text-gray-500 mt-1">Visa, Mastercard, Amex, eZ Cash, mCash, FriMi, Genie.</div>
                                     </div>
                                 </label>
 
