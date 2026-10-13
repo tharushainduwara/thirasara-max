@@ -6,6 +6,7 @@ require_once __DIR__ . '/config/config.php';
 require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/functions.php';
+require_once __DIR__ . '/includes/mailer.php';
 
 /* Authentication & Session Verification*/
 
@@ -343,6 +344,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'order_number' => $orderNumber,
             'total_amount' => $totalAmount
         ];
+
+        // Send order confirmation email (with invoice PDF attachment)
+        sendOrderConfirmationEmail($orderId);
 
         // Route online payments to respective gateway handlers
         if ($paymentMethod === 'payhere') {

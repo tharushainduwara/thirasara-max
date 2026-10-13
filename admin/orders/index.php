@@ -4,6 +4,7 @@ require_once __DIR__ . '/../../config/config.php';
 require_once __DIR__ . '/../../config/database.php';
 require_once __DIR__ . '/../../includes/auth.php';
 require_once __DIR__ . '/../../includes/functions.php';
+require_once __DIR__ . '/../../includes/mailer.php';
 
 requireAuth(['admin']);
 
@@ -32,16 +33,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 if (in_array($newStatus, $validStatuses, true)) {
                     try {
-                        // Get the current order status first
+                        // Get the current order status + payment_status first
                         $checkStmt = $pdo->prepare("
-                SELECT order_status
+                SELECT order_status, payment_status
                 FROM orders
                 WHERE id = :id
                 LIMIT 1
             ");
                         $checkStmt->execute([':id' => $orderId]);
 
-                        $currentStatus = $checkStmt->fetchColumn();
+                        $currentRow = $checkStmt->fetch(PDO::FETCH_ASSOC);
+                        $currentStatus = $currentRow['order_status'] ?? false;
+                        $currentPaymentStatus = $currentRow['payment_status'] ?? 'pending';
 
                         if ($currentStatus === false) {
                             setFlash('error', 'Order not found.');
@@ -69,6 +72,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 'success',
                                 "Order #{$orderId} status updated to " . ucfirst($newStatus) . '.'
                             );
+
+                            // Send status update email to customer
+                            sendOrderStatusUpdateEmail($orderId, $newStatus, $currentPaymentStatus);
                         }
                     } catch (PDOException $e) {
                         error_log('Error updating order status: ' . $e->getMessage());
@@ -83,9 +89,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 if (in_array($newPayment, $validPayments, true)) {
                     try {
+                        // Fetch current order_status to pass to email function
+                        $curStmt = $pdo->prepare("SELECT order_status FROM orders WHERE id = :id LIMIT 1");
+                        $curStmt->execute([':id' => $orderId]);
+                        $currentOrderStatus = (string)($curStmt->fetchColumn() ?: 'placed');
+
                         $stmt = $pdo->prepare("UPDATE orders SET payment_status = :payment, updated_at = NOW() WHERE id = :id");
                         $stmt->execute([':payment' => $newPayment, ':id' => $orderId]);
                         setFlash('success', "Order #{$orderId} payment status updated to " . ucfirst($newPayment) . '.');
+
+                        // Send payment status update email to customer
+                        sendOrderStatusUpdateEmail($orderId, $currentOrderStatus, $newPayment);
+
                     } catch (PDOException $e) {
                         error_log('Error updating payment status: ' . $e->getMessage());
                         setFlash('error', 'Database error updating payment status.');

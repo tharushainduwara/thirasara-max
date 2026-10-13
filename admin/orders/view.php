@@ -4,6 +4,7 @@ require_once __DIR__ . '/../../config/config.php';
 require_once __DIR__ . '/../../config/database.php';
 require_once __DIR__ . '/../../includes/auth.php';
 require_once __DIR__ . '/../../includes/functions.php';
+require_once __DIR__ . '/../../includes/mailer.php';
 
 requireAuth(['admin']);
 
@@ -97,6 +98,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         }
 
                         setFlash('success', 'Order details and statuses updated successfully.');
+
+                        // Send status update email to customer
+                        sendOrderStatusUpdateEmail(
+                            $targetOrderId,
+                            $newOrderStatus,
+                            $newPaymentStatus
+                        );
+
                     } catch (PDOException $e) {
                         error_log('Admin order update error: ' . $e->getMessage());
                         setFlash('error', 'Database error updating order.');
@@ -879,7 +888,7 @@ function paymentBadge(string $status): string
                 </div>
             </div>
             <p class="text-xs text-gray-500 leading-relaxed mt-1">
-                Nawala Road, Colombo, Sri Lanka<br>
+                Galle - Colombo Rd, Wadduwa<br>
                 Hotline: 077 123 4567 &bull; Email: info@thirasaramax.lk
             </p>
         </div>
@@ -1036,7 +1045,7 @@ function paymentBadge(string $status): string
     <div class="border-t border-gray-200 pt-4 text-center text-[10px] text-gray-500 space-y-1">
         <p class="font-bold text-gray-800">Thank you for choosing <?php echo APP_NAME; ?>!</p>
         <p>Goods sold are covered under respective warranty terms. Retain this invoice for warranty verification.</p>
-        <p>Support Hotline: 077 123 4567 &bull; Email: support@thirasaramax.lk &bull; Nawala Road, Colombo, Sri Lanka</p>
+        <p>Support Hotline: 077 123 4567 &bull; Email: support@thirasaramax.lk &bull; Galle - Colombo Rd, Wadduwa</p>
     </div>
 
 </div>

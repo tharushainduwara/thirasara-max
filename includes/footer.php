@@ -69,16 +69,16 @@
                 <div class="space-y-3">
                     <div class="flex gap-3">
                         <i data-lucide="phone" class="w-4 h-4 mt-0.5 text-brand-red flex-shrink-0"></i>
-                        <span class="text-sm">Contact us for assistance</span>
+                        <a href="tel:0771234567" class="text-sm hover:text-white transition">077 123 4567</a>
                     </div>
                     <div class="flex gap-3">
                         <i data-lucide="map-pin" class="w-4 h-4 mt-0.5 text-brand-red flex-shrink-0"></i>
-                        <span class="text-sm">Thirasara Max Mobile</span>
+                        <span class="text-sm">Galle - Colombo Rd, Wadduwa</span>
                     </div>
                     <div class="flex gap-3">
                         <i data-lucide="mail" class="w-4 h-4 mt-0.5 text-brand-red flex-shrink-0"></i>
-                        <a href="<?= APP_URL ?>/inquiry.php" class="text-sm hover:text-white transition">
-                            Send an inquiry
+                        <a href="mailto:info@thirasaramax.lk" class="text-sm hover:text-white transition">
+                            info@thirasaramax.lk
                         </a>
                     </div>
                 </div>

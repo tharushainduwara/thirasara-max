@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../includes/mailer.php';
 
 // Only accept POST requests from PayHere
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -95,6 +96,10 @@ if ((int) $statusCode === 2) {
 
             $db->commit();
             error_log("PayHere IPN: Order {$orderNumber} successfully marked as PAID");
+
+            // Send payment confirmation email with invoice PDF
+            sendOrderStatusUpdateEmail($orderId, 'processing', 'paid');
+
         } catch (\Throwable $e) {
             if ($db->inTransaction()) {
                 $db->rollBack();
