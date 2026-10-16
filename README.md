@@ -20,7 +20,7 @@ Module 1.0 - Authentication & User Management: Registration, Login, Profile Mana
 
 Module 2.0 - Product & Inventory Management: Catalog CRUD, Repairable product flag, Stock control & Automated Low Stock Alerts.
 
-Module 3.0 - Order & Payment Management: Shopping cart, Online checkout via PayPal / Stripe, Order confirmation & transaction logs.
+Module 3.0 - Order & Payment Management: Shopping cart, Online checkout via PayHere / Cash on Delivery, Order confirmation & transaction logs.
 
 Module 4.0 - Repair Management: Online repair booking, Technician assignment, Live status tracking (Pending → In Progress → Ready for Collection → Completed).
 
@@ -42,5 +42,5 @@ PDF Generation: dompdf/dompdf
 
 Email Notifications: phpmailer/phpmailer
 
-Payments: PayPal SDK / Stripe API
+Payments: PayHere (Sri Lanka) / Cash on Delivery
 

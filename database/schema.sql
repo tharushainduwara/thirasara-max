@@ -182,7 +182,7 @@ CREATE TABLE IF NOT EXISTS `payments` (
     `order_id` INT NULL,
     `repair_id` INT NULL,
     `transaction_id` VARCHAR(100) NOT NULL,
-    `payment_method` ENUM('payhere', 'paypal', 'cash', 'bank_transfer') NOT NULL,
+    `payment_method` ENUM('payhere', 'cash') NOT NULL,
     `amount` DECIMAL(10,2) NOT NULL,
     `payment_status` ENUM('success', 'pending', 'failed') NOT NULL DEFAULT 'pending',
     `payment_payload` TEXT NULL,

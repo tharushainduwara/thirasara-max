@@ -39,9 +39,3 @@ define('DEFAULT_WARRANTY_MONTHS', 6);
 define('PAYHERE_MODE', $_ENV['PAYHERE_MODE'] ?? 'sandbox'); // sandbox or live
 define('PAYHERE_MERCHANT_ID', $_ENV['PAYHERE_MERCHANT_ID'] ?? '');
 define('PAYHERE_MERCHANT_SECRET', $_ENV['PAYHERE_MERCHANT_SECRET'] ?? '');
-
-// PayPal Settings
-define('PAYPAL_MODE', $_ENV['PAYPAL_MODE'] ?? 'sandbox'); // sandbox or live
-define('PAYPAL_CLIENT_ID', $_ENV['PAYPAL_CLIENT_ID'] ?? '');
-define('PAYPAL_CLIENT_SECRET', $_ENV['PAYPAL_CLIENT_SECRET'] ?? '');
-define('USD_EXCHANGE_RATE', (float) ($_ENV['USD_EXCHANGE_RATE'] ?? 305.00)); // for PayPal

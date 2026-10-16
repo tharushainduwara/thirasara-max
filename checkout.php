@@ -139,9 +139,7 @@ if (count($checkoutItems) !== count($productIds)) {
 $COD_FEE = 350.00;
 $paymentMethods = [
     'cash'          => ['label' => 'Cash on Delivery',             'fee' => $COD_FEE],
-    'bank_transfer' => ['label' => 'Bank Transfer',                'fee' => 0.00],
-    'payhere'       => ['label' => 'PayHere (Cards & Wallets)',    'fee' => 0.00],
-    'paypal'        => ['label' => 'PayPal',                       'fee' => 0.00]
+    'payhere'       => ['label' => 'PayHere (Cards & Wallets)',    'fee' => 0.00]
 ];
 
 $shippingAddress = trim($_POST['shipping_address'] ?? ($user['address'] ?? ''));
@@ -354,12 +352,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
 
-        if ($paymentMethod === 'paypal') {
-            header('Location: ' . APP_URL . '/payments/paypal-init.php?order_id=' . $orderId);
-            exit;
-        }
-
-        // Cash on delivery / Bank Transfer
+        // Cash on delivery
         unset($_SESSION['cart']);
         setFlash('success', 'Your order has been placed successfully.');
         header('Location: ' . APP_URL . '/customer/orders.php?order=' . urlencode($orderNumber));
@@ -546,19 +539,6 @@ $totalAmount = $subtotal + $shipping + $paymentFee;
                                     <div class="text-sm font-bold text-brand-red">+ Rs. 350</div>
                                 </label>
 
-                                <!-- Bank Transfer -->
-                                <label class="payment-option flex items-center gap-4 p-4 rounded-xl border cursor-pointer transition hover:border-brand-red hover:bg-red-50">
-                                    <input type="radio" name="payment_method" value="bank_transfer" <?= $paymentMethod === 'bank_transfer' ? 'checked' : '' ?>
-                                        class="w-4 h-4 accent-brand-red">
-                                    <div class="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center text-gray-700">
-                                        <i data-lucide="building-2" class="w-5 h-5"></i>
-                                    </div>
-                                    <div class="flex-1">
-                                        <div class="font-semibold text-gray-900">Bank Transfer</div>
-                                        <div class="text-xs text-gray-500 mt-1">Transfer the payment using our bank details.</div>
-                                    </div>
-                                </label>
-
                                 <!-- PayHere (Sri Lanka Gateway) -->
                                 <label class="payment-option flex items-center gap-4 p-4 rounded-xl border cursor-pointer transition hover:border-teal-500 hover:bg-teal-50/40">
                                     <input type="radio" name="payment_method" value="payhere" <?= $paymentMethod === 'payhere' ? 'checked' : '' ?>
@@ -575,18 +555,6 @@ $totalAmount = $subtotal + $shipping + $paymentFee;
                                     </div>
                                 </label>
 
-                                <!-- PayPal -->
-                                <label class="payment-option flex items-center gap-4 p-4 rounded-xl border cursor-pointer transition hover:border-brand-red hover:bg-red-50">
-                                    <input type="radio" name="payment_method" value="paypal" <?= $paymentMethod === 'paypal' ? 'checked' : '' ?>
-                                        class="w-4 h-4 accent-brand-red">
-                                    <div class="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center text-gray-700">
-                                        <i data-lucide="wallet" class="w-5 h-5"></i>
-                                    </div>
-                                    <div class="flex-1">
-                                        <div class="font-semibold text-gray-900">PayPal</div>
-                                        <div class="text-xs text-gray-500 mt-1">Pay securely using your PayPal account.</div>
-                                    </div>
-                                </label>
                             </div>
                         </div>
                     </div>
