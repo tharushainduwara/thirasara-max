@@ -19,10 +19,10 @@ if ($userId <= 0 || $orderId <= 0) {
     exit;
 }
 
-$db = Database::getConnection();
+$pdo = Database::getConnection();
 
 // Fetch Order
-$orderStmt = $db->prepare("
+$orderStmt = $pdo->prepare("
     SELECT id, order_number, user_id, payment_status, order_status
     FROM orders
     WHERE id = ? AND user_id = ?
@@ -51,10 +51,10 @@ if ($order['order_status'] === 'cancelled') {
 }
 
 try {
-    $db->beginTransaction();
+    $pdo->beginTransaction();
 
     // 1. Fetch order items to restore reserved stock
-    $itemStmt = $db->prepare("
+    $itemStmt = $pdo->prepare("
         SELECT product_id, quantity 
         FROM order_items 
         WHERE order_id = ?
@@ -63,7 +63,7 @@ try {
     $items = $itemStmt->fetchAll(PDO::FETCH_ASSOC);
 
     // 2. Return stock to inventory
-    $stockStmt = $db->prepare("
+    $stockStmt = $pdo->prepare("
         UPDATE inventory 
         SET stock_quantity = stock_quantity + ?,
             updated_at = CURRENT_TIMESTAMP
@@ -78,7 +78,7 @@ try {
     }
 
     // 3. Update Order state to cancelled / failed
-    $updateOrder = $db->prepare("
+    $updateOrder = $pdo->prepare("
         UPDATE orders 
         SET payment_status = 'failed',
             order_status = 'cancelled',
@@ -88,7 +88,7 @@ try {
     $updateOrder->execute([$orderId]);
 
     // 4. Update Payment log
-    $updatePayment = $db->prepare("
+    $updatePayment = $pdo->prepare("
         UPDATE payments 
         SET payment_status = 'failed',
             payment_payload = ?
@@ -100,12 +100,12 @@ try {
     ], JSON_UNESCAPED_SLASHES);
     $updatePayment->execute([$cancelPayload, $orderId]);
 
-    $db->commit();
+    $pdo->commit();
 
     setFlash('warning', 'Payment was cancelled. Your pending order was cancelled and inventory was released. You may try again whenever you are ready.');
 } catch (\Throwable $e) {
-    if ($db->inTransaction()) {
-        $db->rollBack();
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
     }
     error_log('Cancel Order Error: ' . $e->getMessage());
     setFlash('error', 'An issue occurred while processing payment cancellation.');

@@ -18,7 +18,7 @@ if (!$currentUser) {
 }
 
 $userId = (int) $currentUser['id'];
-$db = Database::getConnection();
+$pdo = Database::getConnection();
 
 /*Default Data*/
 
@@ -100,7 +100,7 @@ function dashboardNotificationIcon(string $type): string
 
 try {
     // Order Statistics
-    $stmt = $db->prepare("
+    $stmt = $pdo->prepare("
         SELECT
             COUNT(*) AS total_orders,
             COALESCE(SUM(CASE WHEN order_status NOT IN ('delivered', 'cancelled') THEN 1 ELSE 0 END), 0) AS active_orders,
@@ -118,7 +118,7 @@ try {
     }
 
     // Repair Statistics
-    $stmt = $db->prepare("
+    $stmt = $pdo->prepare("
         SELECT
             COUNT(*) AS total_repairs,
             COALESCE(SUM(CASE WHEN repair_status NOT IN ('completed', 'cancelled') THEN 1 ELSE 0 END), 0) AS active_repairs
@@ -134,7 +134,7 @@ try {
     }
 
     // Warranty Statistics
-    $stmt = $db->prepare("
+    $stmt = $pdo->prepare("
         SELECT
             COUNT(*) AS total_warranties,
             COALESCE(SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END), 0) AS active_warranties
@@ -150,7 +150,7 @@ try {
     }
 
     // Inquiry Statistics
-    $stmt = $db->prepare("
+    $stmt = $pdo->prepare("
         SELECT
             COUNT(*) AS total_inquiries,
             COALESCE(SUM(CASE WHEN status NOT IN ('resolved', 'closed') THEN 1 ELSE 0 END), 0) AS open_inquiries
@@ -166,7 +166,7 @@ try {
     }
 
     // Notification Statistics
-    $stmt = $db->prepare("SELECT COUNT(*) AS unread_notifications FROM notifications WHERE user_id = ? AND is_read = 0");
+    $stmt = $pdo->prepare("SELECT COUNT(*) AS unread_notifications FROM notifications WHERE user_id = ? AND is_read = 0");
     $stmt->execute([$userId]);
     $notificationStats = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -175,7 +175,7 @@ try {
     }
 
     // Recent Orders
-    $stmt = $db->prepare("
+    $stmt = $pdo->prepare("
         SELECT id, order_number, total_amount, payment_status, order_status, created_at
         FROM orders
         WHERE user_id = ?
@@ -186,7 +186,7 @@ try {
     $recentOrders = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     // Recent Repairs
-    $stmt = $db->prepare("
+    $stmt = $pdo->prepare("
         SELECT id, repair_code, device_model, repair_status, estimated_cost, final_cost, preferred_date, created_at
         FROM repairs
         WHERE user_id = ?
@@ -197,7 +197,7 @@ try {
     $recentRepairs = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     // Recent Warranties
-    $stmt = $db->prepare("
+    $stmt = $pdo->prepare("
         SELECT
             w.id, w.warranty_code, w.warranty_type, w.start_date, w.end_date, w.status,
             p.name AS product_name, p.brand AS product_brand
@@ -211,7 +211,7 @@ try {
     $recentWarranties = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     // Recent Inquiries
-    $stmt = $db->prepare("
+    $stmt = $pdo->prepare("
         SELECT id, subject, status, created_at
         FROM inquiries
         WHERE user_id = ?
@@ -222,7 +222,7 @@ try {
     $recentInquiries = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     // Recent Notifications
-    $stmt = $db->prepare("
+    $stmt = $pdo->prepare("
         SELECT id, title, message, type, is_read, created_at
         FROM notifications
         WHERE user_id = ?
@@ -245,45 +245,42 @@ $dashboardActivePulse = $stats['active_orders'] + $stats['active_repairs'] + $st
 <div class="max-w-7xl mx-auto pb-10">
 
     <!-- Welcome Header -->
+<section class="bg-gradient-to-r from-gray-900 via-zinc-900 to-gray-900 text-white border-b-4 border-brand-red py-10 rounded-3xl overflow-hidden mb-8">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+            <div class="max-w-xl">
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded bg-brand-red text-white text-[10px] font-bold uppercase tracking-wider mb-2">
+                    Customer Portal
+                </span>
+                <h1 class="text-2xl sm:text-3xl font-black uppercase tracking-tight text-white leading-tight">
+                    Welcome back, <span class="text-brand-red"><?= htmlspecialchars($currentUser['name'] ?? 'Customer') ?></span>
+                </h1>
+                <p class="mt-1.5 text-gray-300 text-xs sm:text-sm leading-relaxed">
+                    Manage your orders, device repairs, warranties and support requests from one place.
+                </p>
 
-    <section class="mb-8">
-        <div class="dash-hero-in relative overflow-hidden bg-white border border-gray-200 rounded-[28px] shadow-sm">
-            <div class="h-[3px] w-full bg-gradient-to-r from-brand-red via-brand-red to-gray-900"></div>
-
-            <div class="px-6 py-8 sm:px-10 sm:py-10">
-                <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-8">
-                    <div class="max-w-xl">
-                        <p class="text-sm font-semibold text-gray-400">Thirasara Max &middot; Customer portal</p>
-                        <h1 class="mt-2 text-3xl sm:text-4xl font-black tracking-tight text-gray-900 leading-tight">
-                            Welcome back, <span class="text-brand-red"><?= htmlspecialchars($currentUser['name'] ?? 'Customer') ?></span>
-                        </h1>
-                        <p class="mt-3 text-[15px] text-gray-500 leading-relaxed">
-                            Manage your orders, device repairs, warranties and support requests from one place.
-                        </p>
-
-                        <?php if ($dashboardActivePulse > 0): ?>
-                            <div class="mt-5 inline-flex items-center gap-2 text-sm text-gray-600">
-                                <span class="relative flex h-2 w-2">
-                                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-red opacity-60"></span>
-                                    <span class="relative inline-flex rounded-full h-2 w-2 bg-brand-red"></span>
-                                </span>
-                                <span>
-                                    <strong class="font-bold text-gray-900"><?= $dashboardActivePulse ?></strong>
-                                    thing<?= $dashboardActivePulse === 1 ? '' : 's' ?> currently in progress
-                                </span>
-                            </div>
-                        <?php endif; ?>
+                <?php if ($dashboardActivePulse > 0): ?>
+                    <div class="mt-4 inline-flex items-center gap-2 text-xs sm:text-sm text-gray-300 font-medium">
+                        <span class="relative flex h-2 w-2">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-red opacity-65"></span>
+                            <span class="relative inline-flex rounded-full h-2 w-2 bg-brand-red"></span>
+                        </span>
+                        <span>
+                            <strong class="font-bold text-white"><?= $dashboardActivePulse ?></strong>
+                            thing<?= $dashboardActivePulse === 1 ? '' : 's' ?> currently in progress
+                        </span>
                     </div>
-
-                    <a href="<?= APP_URL ?>/products.php"
-                        class="inline-flex items-center justify-center gap-2 bg-gray-900 hover:bg-brand-red text-white px-6 py-3.5 rounded-2xl text-sm font-bold shadow-sm transition-colors shrink-0">
-                        <i data-lucide="shopping-bag" class="w-4 h-4"></i>
-                        Shop products
-                    </a>
-                </div>
+                <?php endif; ?>
             </div>
+
+            <a href="<?= APP_URL ?>/products.php"
+                class="inline-flex items-center justify-center gap-2 bg-white hover:bg-gray-100 text-gray-900 px-5 py-3 rounded-xl text-xs sm:text-sm font-bold uppercase tracking-wider shadow-sm transition shrink-0">
+                <i data-lucide="shopping-bag" class="w-4 h-4 text-brand-red"></i>
+                Shop products
+            </a>
         </div>
-    </section>
+    </div>
+</section>
 
     <!-- Error Notice -->
 

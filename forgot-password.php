@@ -24,9 +24,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         setFlash('error', 'Please enter a valid email address.');
     } else {
         try {
-            $db = Database::getConnection();
+            $pdo = Database::getConnection();
 
-            $stmt = $db->prepare("
+            $stmt = $pdo->prepare("
                 SELECT id, name, email
                 FROM users
                 WHERE email = ?
@@ -39,14 +39,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if ($user) {
                 // Remove old reset tokens for this user.
-                $deleteStmt = $db->prepare("DELETE FROM password_resets WHERE user_id = ?");
+                $deleteStmt = $pdo->prepare("DELETE FROM password_resets WHERE user_id = ?");
                 $deleteStmt->execute([$user['id']]);
 
                 // Generate a secure reset token.
                 $token = bin2hex(random_bytes(32));
 
                 // Store token and set expiry using MySQL time.
-                $insertStmt = $db->prepare("
+                $insertStmt = $pdo->prepare("
                     INSERT INTO password_resets (user_id, token, expires_at)
                     VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 30 MINUTE))
                 ");

@@ -87,7 +87,7 @@ $products = [];
 
 try {
     $sql = "
-        SELECT
+        SELECT 
             p.id, p.name, p.category, p.brand, p.description, p.price,
             p.is_repairable, p.warranty_period_months, p.image_url, p.status, p.created_at,
             COALESCE(i.stock_quantity, 0) AS stock_quantity,
@@ -139,23 +139,8 @@ try {
 
     $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
-    /*
-    | Log the real database error so it can be
-    | checked in PHP/XAMPP logs.
-    */
     error_log('Products page database error: ' . $e->getMessage());
-
     $products = [];
-}
-
-/* Helper: Product Image */
-function getProductImage(?string $imageUrl): string
-{
-    if (empty($imageUrl)) {
-        return '';
-    }
-
-    return $imageUrl;
 }
 
 /* Helper: Product Stock Status */
@@ -167,8 +152,7 @@ function getStockStatus(array $product): array
     if ($stock <= 0) {
         return [
             'label' => 'Out of Stock',
-            'class' => 'bg-red-100 text-red-700 border-red-200',
-            'dot' => 'bg-red-500',
+            'class' => 'bg-red-500 text-white',
             'available' => false
         ];
     }
@@ -176,16 +160,14 @@ function getStockStatus(array $product): array
     if ($stock <= $threshold) {
         return [
             'label' => 'Only ' . $stock . ' left',
-            'class' => 'bg-amber-100 text-amber-700 border-amber-200',
-            'dot' => 'bg-amber-500',
+            'class' => 'bg-amber-500 text-white',
             'available' => true
         ];
     }
 
     return [
         'label' => 'In Stock',
-        'class' => 'bg-green-100 text-green-700 border-green-200',
-        'dot' => 'bg-green-500',
+        'class' => 'bg-emerald-600 text-white',
         'available' => true
     ];
 }
@@ -197,7 +179,6 @@ function productImageUrl(?string $imageUrl): string
         return '';
     }
 
-    // If the database contains an absolute URL, use it directly.
     if (
         str_starts_with($imageUrl, 'http://') ||
         str_starts_with($imageUrl, 'https://') ||
@@ -206,7 +187,6 @@ function productImageUrl(?string $imageUrl): string
         return $imageUrl;
     }
 
-    // Otherwise treat it as an application-relative path.
     return APP_URL . '/' . ltrim($imageUrl, '/');
 }
 
@@ -252,67 +232,70 @@ $currentScript = basename($_SERVER['PHP_SELF']);
 
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        /* Hide scrollbar for horizontal scrolling rows */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
 </head>
 
-<body class="bg-gray-50 text-gray-800 flex flex-col min-h-screen font-sans antialiased">
+<body class="bg-gray-100 text-gray-800 flex flex-col min-h-screen font-sans antialiased">
 
     <?php require_once __DIR__ . '/includes/header.php'; ?>
 
     <!-- PAGE HEADER -->
-    <section class="bg-brand-dark text-white rounded-3xl shadow-sm">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
-            <div class="max-w-3xl">
-
-                <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs font-semibold text-gray-300 mb-5">
-                    <span class="w-1.5 h-1.5 rounded-full bg-brand-red"></span>
-                    THIRASARA MAX MOBILE
+    <section class="bg-gradient-to-r from-gray-900 via-zinc-900 to-gray-900 text-white border-b-4 border-brand-red py-10 rounded-3xl overflow-hidden">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div>
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded bg-brand-red text-white text-[10px] font-bold uppercase tracking-wider mb-2">
+                        Catalog
+                    </span>
+                    <h1 class="text-2xl sm:text-3xl font-black uppercase tracking-tight">Products & Accessories</h1>
+                    <p class="text-gray-300 text-xs sm:text-sm mt-1">Explore our full stock of authentic mobile parts, chargers, and accessories.</p>
                 </div>
-
-                <h1 class="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight">
-                    Products & Accessories
-                </h1>
-
-                <p class="mt-4 text-gray-400 text-sm sm:text-base leading-relaxed max-w-2xl">
-                    Explore our collection of mobile accessories, spare parts,
-                    and other quality products from Thirasara Max Mobile.
-                </p>
-
+                <div class="text-xs font-bold text-gray-900 bg-white px-4 py-2 rounded-xl self-start md:self-auto shadow-sm">
+                    Showing <span class="text-brand-red font-black"><?php echo count($products); ?></span> items
+                </div>
             </div>
         </div>
     </section>
 
     <!-- MAIN CONTENT -->
-    <main class="flex-1">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10">
+    <main class="flex-1 py-8">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
-            <!-- Search + Filter -->
-            <form method="GET" action="<?php echo APP_URL; ?>/products.php" class="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 sm:p-5 mb-8">
-
+            <!-- Search + Filter Bar -->
+            <form method="GET" action="<?php echo APP_URL; ?>/products.php" class="bg-white rounded-xl border-2 border-gray-200 p-4 sm:p-5 mb-8 shadow-sm">
                 <div class="grid grid-cols-1 lg:grid-cols-12 gap-3">
 
-                    <!-- Search -->
-                    <div class="lg:col-span-5">
+                    <!-- Search Input -->
+                    <div class="lg:col-span-5 relative">
                         <label for="search" class="sr-only">Search products</label>
-                        <div class="relative">
-                            <i data-lucide="search" class="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400"></i>
-                            <input
-                                type="search"
-                                id="search"
-                                name="search"
-                                value="<?php echo htmlspecialchars($search, ENT_QUOTES, 'UTF-8'); ?>"
-                                placeholder="Search products, brands..."
-                                autocomplete="off"
-                                class="w-full h-11 pl-11 pr-24 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-brand-red focus:ring-2 focus:ring-brand-red/10 outline-none text-sm transition">
-                            <button type="submit" class="absolute right-1.5 top-1/2 -translate-y-1/2 h-8 px-3 rounded-lg bg-brand-red hover:bg-brand-redHover text-white text-xs font-bold transition">
-                                Search
-                            </button>
-                        </div>
+                        <i data-lucide="search" class="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"></i>
+                        <input
+                            type="search"
+                            id="search"
+                            name="search"
+                            value="<?php echo htmlspecialchars($search, ENT_QUOTES, 'UTF-8'); ?>"
+                            placeholder="Search products, brands, parts..."
+                            autocomplete="off"
+                            class="w-full h-10 pl-10 pr-20 rounded-lg border border-gray-300 bg-gray-50 focus:bg-white focus:border-brand-red outline-none text-xs sm:text-sm transition">
+                        <button type="submit" class="absolute right-1 top-1/2 -translate-y-1/2 h-8 px-3 rounded-md bg-brand-red hover:bg-brand-redHover text-white text-xs font-bold transition">
+                            Search
+                        </button>
                     </div>
 
-                    <!-- Category -->
+                    <!-- Category Filter -->
                     <div class="lg:col-span-2">
                         <label for="category" class="sr-only">Category</label>
-                        <select id="category" name="category" class="w-full h-11 px-3 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-brand-red focus:ring-2 focus:ring-brand-red/10 outline-none text-sm transition">
+                        <select id="category" name="category" class="w-full h-10 px-3 rounded-lg border border-gray-300 bg-gray-50 focus:bg-white focus:border-brand-red outline-none text-xs sm:text-sm transition text-gray-700">
                             <option value="">All Categories</option>
                             <?php foreach ($categories as $itemCategory): ?>
                                 <option value="<?php echo htmlspecialchars($itemCategory, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $category === $itemCategory ? 'selected' : ''; ?>>
@@ -322,10 +305,10 @@ $currentScript = basename($_SERVER['PHP_SELF']);
                         </select>
                     </div>
 
-                    <!-- Brand -->
+                    <!-- Brand Filter -->
                     <div class="lg:col-span-2">
                         <label for="brand" class="sr-only">Brand</label>
-                        <select id="brand" name="brand" class="w-full h-11 px-3 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-brand-red focus:ring-2 focus:ring-brand-red/10 outline-none text-sm transition">
+                        <select id="brand" name="brand" class="w-full h-10 px-3 rounded-lg border border-gray-300 bg-gray-50 focus:bg-white focus:border-brand-red outline-none text-xs sm:text-sm transition text-gray-700">
                             <option value="">All Brands</option>
                             <?php foreach ($brands as $itemBrand): ?>
                                 <option value="<?php echo htmlspecialchars($itemBrand, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $brand === $itemBrand ? 'selected' : ''; ?>>
@@ -335,66 +318,44 @@ $currentScript = basename($_SERVER['PHP_SELF']);
                         </select>
                     </div>
 
-                    <!-- Sort -->
-                    <div class="lg:col-span-2">
+                    <!-- Sort Options -->
+                    <div class="lg:col-span-3">
                         <label for="sort" class="sr-only">Sort products</label>
-                        <select id="sort" name="sort" class="w-full h-11 px-3 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-brand-red focus:ring-2 focus:ring-brand-red/10 outline-none text-sm transition">
-                            <option value="latest" <?php echo $sort === 'latest' ? 'selected' : ''; ?>>Latest</option>
+                        <select id="sort" name="sort" class="w-full h-10 px-3 rounded-lg border border-gray-300 bg-gray-50 focus:bg-white focus:border-brand-red outline-none text-xs sm:text-sm transition text-gray-700">
+                            <option value="latest" <?php echo $sort === 'latest' ? 'selected' : ''; ?>>Sort: Latest Arrivals</option>
                             <option value="price_low" <?php echo $sort === 'price_low' ? 'selected' : ''; ?>>Price: Low to High</option>
                             <option value="price_high" <?php echo $sort === 'price_high' ? 'selected' : ''; ?>>Price: High to Low</option>
-                            <option value="name_az" <?php echo $sort === 'name_az' ? 'selected' : ''; ?>>Name: A-Z</option>
-                            <option value="name_za" <?php echo $sort === 'name_za' ? 'selected' : ''; ?>>Name: Z-A</option>
+                            <option value="name_az" <?php echo $sort === 'name_az' ? 'selected' : ''; ?>>Name: A - Z</option>
+                            <option value="name_za" <?php echo $sort === 'name_za' ? 'selected' : ''; ?>>Name: Z - A</option>
                         </select>
                     </div>
 
                 </div>
 
-                <!-- Result Count / Clear -->
-                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-4">
-                    <div class="text-sm text-gray-500">
-                        <?php echo count($products); ?> product<?php echo count($products) === 1 ? '' : 's'; ?> found
-                    </div>
-
-                    <?php if ($search !== '' || $category !== '' || $brand !== ''): ?>
-                        <a href="<?php echo APP_URL; ?>/products.php" class="inline-flex items-center gap-2 text-sm font-semibold text-brand-red hover:text-brand-redHover transition">
-                            <i data-lucide="x" class="w-4 h-4"></i>
-                            Clear filters
-                        </a>
+                <!-- Active Filters Row -->
+                <?php if ($search !== '' || $category !== '' || $brand !== ''): ?>
+                <div class="flex flex-wrap items-center gap-2 mt-4 pt-3 border-t border-gray-200 text-xs">
+                    <span class="text-gray-500 font-bold">Active filters:</span>
+                    <?php if ($search !== ''): ?>
+                        <span class="px-2 py-0.5 rounded bg-gray-100 text-gray-800 font-semibold">Search: "<?php echo htmlspecialchars($search); ?>"</span>
                     <?php endif; ?>
+                    <?php if ($category !== ''): ?>
+                        <span class="px-2 py-0.5 rounded bg-gray-100 text-gray-800 font-semibold">Category: <?php echo htmlspecialchars($category); ?></span>
+                    <?php endif; ?>
+                    <?php if ($brand !== ''): ?>
+                        <span class="px-2 py-0.5 rounded bg-gray-100 text-gray-800 font-semibold">Brand: <?php echo htmlspecialchars($brand); ?></span>
+                    <?php endif; ?>
+                    <a href="<?php echo APP_URL; ?>/products.php" class="text-brand-red font-bold hover:underline ml-auto flex items-center gap-1">
+                        <i data-lucide="x" class="w-3.5 h-3.5"></i> Clear all
+                    </a>
                 </div>
-
+                <?php endif; ?>
             </form>
 
-            <!-- Active Filters -->
-            <?php if ($search !== '' || $category !== '' || $brand !== ''): ?>
-                <div class="flex flex-wrap items-center gap-2 mb-6">
-                    <span class="text-xs font-semibold text-gray-500">Active filters:</span>
-
-                    <?php if ($search !== ''): ?>
-                        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-100 text-gray-700 text-xs font-medium">
-                            Search: <?php echo htmlspecialchars($search); ?>
-                        </span>
-                    <?php endif; ?>
-
-                    <?php if ($category !== ''): ?>
-                        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-100 text-gray-700 text-xs font-medium">
-                            Category: <?php echo htmlspecialchars($category); ?>
-                        </span>
-                    <?php endif; ?>
-
-                    <?php if ($brand !== ''): ?>
-                        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-100 text-gray-700 text-xs font-medium">
-                            Brand: <?php echo htmlspecialchars($brand); ?>
-                        </span>
-                    <?php endif; ?>
-                </div>
-            <?php endif; ?>
-
-            <!-- PRODUCT SECTIONS BY CATEGORY -->
+            <!-- PRODUCT SECTIONS BY CATEGORY (HORIZONTAL SCROLLING) -->
             <?php if (!empty($products)): ?>
 
                 <?php
-                // Group products by category
                 $grouped = [];
                 foreach ($products as $product) {
                     $cat = !empty($product['category']) ? $product['category'] : 'Other';
@@ -405,213 +366,143 @@ $currentScript = basename($_SERVER['PHP_SELF']);
                 ?>
 
                 <?php foreach ($grouped as $catName => $catProducts): ?>
-
                     <?php $rowId = 'cat-row-' . $sectionIndex++; ?>
 
-                    <section class="mb-10">
-
-                        <!-- Category Header -->
-                        <div class="flex items-center justify-between mb-4">
-                            <div class="flex items-center gap-3">
-                                <span class="w-1 h-7 rounded-full bg-brand-red inline-block"></span>
-                                <h2 class="text-xl font-extrabold text-gray-900 tracking-tight">
+                    <section class="mb-12">
+                        <!-- Category Header with Scroll Buttons -->
+                        <div class="flex items-center justify-between mb-4 pb-2 border-b-2 border-gray-200">
+                            <div class="flex items-center gap-2.5">
+                                <h2 class="text-lg sm:text-xl font-black text-gray-900 uppercase tracking-tight">
                                     <?php echo htmlspecialchars($catName); ?>
                                 </h2>
-                                <span class="text-sm text-gray-400 font-medium">
-                                    (<?php echo count($catProducts); ?>)
+                                <span class="text-xs font-bold bg-gray-200 text-gray-800 px-2 py-0.5 rounded">
+                                    <?php echo count($catProducts); ?>
                                 </span>
                             </div>
 
                             <!-- Scroll Arrows -->
-                            <div class="flex items-center gap-2">
-                                <button type="button" class="scroll-btn" onclick="scrollRow('<?php echo $rowId; ?>', -1)" aria-label="Scroll left">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                                        <path d="M15 18l-6-6 6-6" />
-                                    </svg>
+                            <div class="flex items-center gap-1.5">
+                                <button type="button" onclick="scrollRow('<?php echo $rowId; ?>', -1)" class="w-8 h-8 rounded-lg bg-white border-2 border-gray-200 hover:border-gray-400 text-gray-700 flex items-center justify-center transition shadow-sm" aria-label="Scroll left">
+                                    <i data-lucide="chevron-left" class="w-4 h-4"></i>
                                 </button>
-                                <button type="button" class="scroll-btn" onclick="scrollRow('<?php echo $rowId; ?>', 1)" aria-label="Scroll right">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                                        <path d="M9 18l6-6-6-6" />
-                                    </svg>
+                                <button type="button" onclick="scrollRow('<?php echo $rowId; ?>', 1)" class="w-8 h-8 rounded-lg bg-white border-2 border-gray-200 hover:border-gray-400 text-gray-700 flex items-center justify-center transition shadow-sm" aria-label="Scroll right">
+                                    <i data-lucide="chevron-right" class="w-4 h-4"></i>
                                 </button>
                             </div>
                         </div>
 
-                        <!-- Horizontal Scroll Row -->
-                        <div id="<?php echo $rowId; ?>" class="category-scroll-row">
-
-                            <?php foreach ($catProducts as $product): ?>
-
-                                <?php
+                        <!-- Horizontal Scrolling Row Container -->
+                        <div id="<?php echo $rowId; ?>" class="flex gap-4 overflow-x-auto no-scrollbar scroll-smooth pb-2 pt-1 px-1">
+                            <?php foreach ($catProducts as $product): 
                                 $stockStatus = getStockStatus($product);
                                 $imageUrl = productImageUrl($product['image_url'] ?? null);
                                 $productName = $product['name'] ?? 'Product';
-                                $description = trim($product['description'] ?? '');
-                                ?>
+                            ?>
+                            <div class="w-[220px] sm:w-[240px] flex-shrink-0 bg-white border-2 border-gray-200 rounded-xl overflow-hidden hover:border-gray-400 hover:shadow-md transition-all flex flex-col justify-between">
+                                
+                                <!-- Image Container -->
+                                <div class="relative aspect-square bg-gray-50 border-b border-gray-200 overflow-hidden">
+                                    <?php if ($imageUrl): ?>
+                                        <img src="<?php echo htmlspecialchars($imageUrl); ?>"
+                                             alt="<?php echo htmlspecialchars($productName); ?>"
+                                             class="w-full h-full object-cover">
+                                    <?php else: ?>
+                                        <div class="w-full h-full flex items-center justify-center text-gray-300">
+                                            <i data-lucide="smartphone" class="w-12 h-12"></i>
+                                        </div>
+                                    <?php endif; ?>
 
-                                <article class="product-card bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm hover:shadow-xl hover:border-gray-300 flex flex-col">
+                                    <!-- Stock Badge -->
+                                    <span class="absolute top-2 left-2 px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider <?php echo $stockStatus['class']; ?>">
+                                        <?php echo htmlspecialchars($stockStatus['label']); ?>
+                                    </span>
 
-                                    <!-- Product Image -->
-                                    <div class="relative h-56 bg-gray-100 overflow-hidden">
+                                    <!-- Repairable Badge -->
+                                    <?php if (!empty($product['is_repairable'])): ?>
+                                    <span class="absolute bottom-2 left-2 inline-flex items-center gap-1 px-2 py-0.5 rounded bg-gray-900 text-white text-[10px] font-bold">
+                                        <i data-lucide="wrench" class="w-3 h-3"></i> Repairable
+                                    </span>
+                                    <?php endif; ?>
+                                </div>
 
-                                        <?php if ($imageUrl): ?>
-                                            <img
-                                                src="<?php echo htmlspecialchars($imageUrl); ?>"
-                                                alt="<?php echo htmlspecialchars($productName); ?>"
-                                                class="product-image w-full h-full object-cover"
-                                                loading="lazy"
-                                                onerror="this.style.display='none'; this.nextElementSibling.classList.remove('hidden');">
-                                            <div class="hidden absolute inset-0 flex flex-col items-center justify-center text-gray-400">
-                                                <i data-lucide="image-off" class="w-10 h-10 mb-2"></i>
-                                                <span class="text-xs">Image unavailable</span>
-                                            </div>
-                                        <?php else: ?>
-                                            <div class="absolute inset-0 flex flex-col items-center justify-center text-gray-400">
-                                                <div class="w-16 h-16 rounded-2xl bg-white flex items-center justify-center shadow-sm mb-3">
-                                                    <i data-lucide="package" class="w-8 h-8"></i>
-                                                </div>
-                                                <span class="text-xs font-medium">No image available</span>
-                                            </div>
-                                        <?php endif; ?>
-
-                                        <!-- Stock Badge -->
-                                        <span class="absolute top-3 right-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-semibold <?php echo $stockStatus['class']; ?>">
-                                            <span class="w-1.5 h-1.5 rounded-full <?php echo $stockStatus['dot']; ?>"></span>
-                                            <?php echo htmlspecialchars($stockStatus['label']); ?>
+                                <!-- Content Details -->
+                                <div class="p-3.5 flex flex-col flex-grow justify-between">
+                                    <div>
+                                        <span class="text-[10px] font-bold text-brand-red uppercase tracking-wider">
+                                            <?php echo htmlspecialchars($product['brand'] ?: $product['category']); ?>
                                         </span>
-
-                                        <!-- Repairable Badge -->
-                                        <?php if (!empty($product['is_repairable'])): ?>
-                                            <span class="absolute bottom-3 left-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-brand-dark/90 text-white text-[10px] font-semibold backdrop-blur">
-                                                <i data-lucide="wrench" class="w-3 h-3"></i>
-                                                Repairable
-                                            </span>
-                                        <?php endif; ?>
-
-                                    </div>
-
-                                    <!-- Product Details -->
-                                    <div class="p-5 flex flex-col flex-1">
-
-                                        <!-- Brand -->
-                                        <?php if (!empty($product['brand'])): ?>
-                                            <p class="text-[11px] uppercase tracking-wider font-bold text-brand-red mb-1.5">
-                                                <?php echo htmlspecialchars($product['brand']); ?>
-                                            </p>
-                                        <?php endif; ?>
-
-                                        <!-- Name -->
-                                        <h3 class="text-base font-bold text-gray-900 line-clamp-2 min-h-[48px]">
-                                            <?php echo htmlspecialchars($productName); ?>
+                                        <h3 class="text-xs sm:text-sm font-bold text-gray-900 line-clamp-2 mt-0.5">
+                                            <a href="<?php echo APP_URL; ?>/product-details.php?id=<?php echo (int) $product['id']; ?>" class="hover:underline">
+                                                <?php echo htmlspecialchars($productName); ?>
+                                            </a>
                                         </h3>
-
-                                        <!-- Description -->
-                                        <p class="text-sm text-gray-500 line-clamp-2 mt-2 min-h-[40px]">
-                                            <?php
-                                            echo $description !== ''
-                                                ? htmlspecialchars($description)
-                                                : 'Quality mobile product from Thirasara Max Mobile.';
-                                            ?>
-                                        </p>
-
-                                        <!-- Warranty -->
-                                        <div class="flex items-center gap-2 mt-4 text-xs text-gray-500">
-                                            <i data-lucide="shield-check" class="w-4 h-4 text-brand-red"></i>
-                                            <?php
-                                            $warrantyMonths = (int) ($product['warranty_period_months'] ?? 0);
-
-                                            if ($warrantyMonths > 0) {
-                                                echo $warrantyMonths . ' month';
-                                                echo $warrantyMonths === 1 ? '' : 's';
-                                                echo ' warranty';
-                                            } else {
-                                                echo 'Warranty not specified';
-                                            }
-                                            ?>
-                                        </div>
-
-                                        <!-- Price + Button -->
-                                        <div class="mt-auto pt-5">
-
-                                            <div class="flex items-end justify-between gap-3">
-                                                <div>
-                                                    <p class="text-xs text-gray-400 mb-1">Price</p>
-                                                    <p class="text-xl font-extrabold text-gray-900">
-                                                        Rs. <?php echo number_format((float) $product['price'], 2); ?>
-                                                    </p>
-                                                </div>
-
-                                                <!-- Details Button -->
-                                                <a
-                                                    href="<?php echo APP_URL; ?>/product-details.php?id=<?php echo (int) $product['id']; ?>"
-                                                    class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-gray-100 hover:bg-brand-red hover:text-white text-gray-700 transition"
-                                                    title="View product">
-                                                    <i data-lucide="arrow-up-right" class="w-5 h-5"></i>
-                                                </a>
-                                            </div>
-
-                                            <!-- Add to Cart -->
-                                            <?php if ($stockStatus['available']): ?>
-                                                <form method="POST" action="<?php echo APP_URL; ?>/cart.php" class="mt-4">
-                                                    <input type="hidden" name="action" value="add">
-                                                    <input type="hidden" name="product_id" value="<?php echo (int) $product['id']; ?>">
-                                                    <input type="hidden" name="quantity" value="1">
-                                                    <button type="submit" class="w-full h-11 inline-flex items-center justify-center gap-2 rounded-xl bg-brand-red hover:bg-brand-redHover text-white text-sm font-bold transition shadow-sm hover:shadow-md">
-                                                        <i data-lucide="shopping-cart" class="w-4 h-4"></i>
-                                                        Add to Cart
-                                                    </button>
-                                                </form>
-                                            <?php else: ?>
-                                                <button type="button" disabled class="mt-4 w-full h-11 inline-flex items-center justify-center gap-2 rounded-xl bg-gray-100 text-gray-400 text-sm font-bold cursor-not-allowed">
-                                                    <i data-lucide="package-x" class="w-4 h-4"></i>
-                                                    Out of Stock
-                                                </button>
-                                            <?php endif; ?>
-
-                                        </div>
-
                                     </div>
 
-                                </article>
+                                    <div class="mt-3 pt-2 border-t border-gray-100">
+                                        <div class="flex items-center justify-between mb-2">
+                                            <span class="text-sm sm:text-base font-extrabold text-gray-900">
+                                                Rs. <?php echo number_format((float) $product['price'], 2); ?>
+                                            </span>
+                                        </div>
 
+                                        <div class="grid grid-cols-2 gap-2">
+                                            <a href="<?php echo APP_URL; ?>/product-details.php?id=<?php echo (int) $product['id']; ?>"
+                                               class="w-full h-8 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-800 text-xs font-bold flex items-center justify-center transition">
+                                                Details
+                                            </a>
+                                            <?php if ($stockStatus['available']): ?>
+                                            <form method="POST" action="<?php echo APP_URL; ?>/cart.php">
+                                                <input type="hidden" name="action" value="add">
+                                                <input type="hidden" name="product_id" value="<?php echo (int) $product['id']; ?>">
+                                                <input type="hidden" name="quantity" value="1">
+                                                <button type="submit" class="w-full h-8 rounded-lg bg-brand-red hover:bg-brand-redHover text-white text-xs font-bold flex items-center justify-center transition">
+                                                    Add
+                                                </button>
+                                            </form>
+                                            <?php else: ?>
+                                            <button type="button" disabled class="w-full h-8 rounded-lg bg-gray-100 text-gray-400 text-xs font-bold flex items-center justify-center cursor-not-allowed">
+                                                Out
+                                            </button>
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </div>
                             <?php endforeach; ?>
-
                         </div>
-
                     </section>
-
                 <?php endforeach; ?>
 
             <?php else: ?>
-
                 <!-- EMPTY STATE -->
-                <div class="bg-white rounded-2xl border border-gray-200 shadow-sm py-16 px-6 text-center">
-
-                    <div class="w-20 h-20 mx-auto rounded-2xl bg-gray-100 flex items-center justify-center mb-5">
-                        <i data-lucide="package-search" class="w-10 h-10 text-gray-400"></i>
+                <div class="bg-white rounded-xl border-2 border-gray-200 py-16 px-6 text-center shadow-sm">
+                    <div class="w-16 h-16 mx-auto rounded-xl bg-gray-100 flex items-center justify-center mb-3 text-gray-400">
+                        <i data-lucide="package-search" class="w-8 h-8"></i>
                     </div>
-
-                    <h2 class="text-xl font-bold text-gray-900">No products found</h2>
-
-                    <p class="mt-2 max-w-md mx-auto text-sm text-gray-500 leading-relaxed">
-                        We couldn't find any products matching your current
-                        search or filters. Try changing your search criteria.
-                    </p>
-
-                    <a href="<?php echo APP_URL; ?>/products.php" class="inline-flex items-center gap-2 mt-6 px-5 py-2.5 rounded-xl bg-brand-red hover:bg-brand-redHover text-white text-sm font-bold transition">
-                        <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
-                        View All Products
+                    <h2 class="text-base font-bold text-gray-900">No matching products found</h2>
+                    <p class="text-xs text-gray-500 mt-1 max-w-sm mx-auto">Try modifying your search keywords or resetting your filter selections.</p>
+                    <a href="<?php echo APP_URL; ?>/products.php" class="inline-flex items-center gap-2 mt-5 px-5 py-2.5 rounded-xl bg-brand-red hover:bg-brand-redHover text-white text-xs font-bold transition">
+                        Reset All Filters
                     </a>
-
                 </div>
-
             <?php endif; ?>
 
         </div>
     </main>
 
+    <!-- Scroll Row JS Function -->
+    <script>
+        function scrollRow(rowId, direction) {
+            const row = document.getElementById(rowId);
+            if (row) {
+                const scrollAmount = 260 * direction;
+                row.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+            }
+        }
+    </script>
+
     <?php require_once __DIR__ . '/includes/footer.php'; ?>
 
 </body>
-
 </html>

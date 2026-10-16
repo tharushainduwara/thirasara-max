@@ -23,9 +23,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         setFlash('error', 'Please enter your email address and password.');
     } else {
         try {
-            $db = Database::getConnection();
+            $pdo = Database::getConnection();
 
-            $stmt = $db->prepare("
+            $stmt = $pdo->prepare("
                 SELECT id, name, email, password, role, status
                 FROM users
                 WHERE email = ?

@@ -18,10 +18,10 @@ if ($userId <= 0) {
     exit;
 }
 
-$db = Database::getConnection();
+$pdo = Database::getConnection();
 
 /* Fetch Full User Record */
-$userStmt = $db->prepare("
+$userStmt = $pdo->prepare("
     SELECT id, name, email, password, phone, address, role, status, google_id, created_at, updated_at
     FROM users
     WHERE id = ?
@@ -70,7 +70,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             // Check for uniqueness if email changed
             if ($email !== strtolower((string)$user['email'])) {
-                $emailCheckStmt = $db->prepare("SELECT id FROM users WHERE email = ? AND id != ? LIMIT 1");
+                $emailCheckStmt = $pdo->prepare("SELECT id FROM users WHERE email = ? AND id != ? LIMIT 1");
                 $emailCheckStmt->execute([$email, $userId]);
                 if ($emailCheckStmt->fetch()) {
                     $errors[] = 'This email address is already in use by another account.';
@@ -107,7 +107,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         try {
-            $updateStmt = $db->prepare("
+            $updateStmt = $pdo->prepare("
                 UPDATE users
                 SET name = ?, email = ?, phone = ?, address = ?, updated_at = NOW()
                 WHERE id = ?
@@ -170,7 +170,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         try {
             $newPasswordHash = password_hash($newPassword, PASSWORD_DEFAULT);
-            $pwStmt = $db->prepare("
+            $pwStmt = $pdo->prepare("
                 UPDATE users
                 SET password = ?, updated_at = NOW()
                 WHERE id = ?
@@ -202,7 +202,7 @@ $stats = [
 
 try {
     // Orders
-    $orderQuery = $db->prepare("
+    $orderQuery = $pdo->prepare("
         SELECT
             COUNT(*) AS total_orders,
             COALESCE(SUM(CASE WHEN order_status NOT IN ('delivered', 'cancelled') THEN 1 ELSE 0 END), 0) AS active_orders,
@@ -218,7 +218,7 @@ try {
     }
 
     // Repairs
-    $repairQuery = $db->prepare("
+    $repairQuery = $pdo->prepare("
         SELECT COALESCE(SUM(CASE WHEN repair_status NOT IN ('completed', 'cancelled') THEN 1 ELSE 0 END), 0) AS active_repairs
         FROM repairs
         WHERE user_id = ?
@@ -229,7 +229,7 @@ try {
     }
 
     // Warranties
-    $warrantyQuery = $db->prepare("
+    $warrantyQuery = $pdo->prepare("
         SELECT COUNT(*) AS active_warranties
         FROM warranties
         WHERE user_id = ? AND status = 'active'

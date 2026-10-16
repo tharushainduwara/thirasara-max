@@ -257,9 +257,9 @@ function sendOrderStatusUpdateEmail(
 function loadOrderEmailData(int $orderId): ?array
 {
     require_once __DIR__ . '/../config/database.php';
-    $db = Database::getConnection();
+    $pdo = Database::getConnection();
 
-    $stmt = $db->prepare("
+    $stmt = $pdo->prepare("
         SELECT
             o.*,
             u.name    AS customer_name,

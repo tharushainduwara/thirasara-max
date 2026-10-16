@@ -21,13 +21,13 @@ if (empty($token) || !preg_match('/^[a-f0-9]{64}$/i', $token)) {
     $errorMessage = 'This password reset link is invalid or has expired.';
 } else {
     try {
-        $db = Database::getConnection();
+        $pdo    = Database::getConnection();
 
         // Hash the token before comparing it with the hashed token stored in the database.
         $hashedToken = hash('sha256', $token);
 
         // Find a valid, non-expired reset token.
-        $stmt = $db->prepare("
+        $stmt = $pdo->prepare("
             SELECT pr.id AS reset_id, pr.user_id, pr.expires_at, u.name, u.email, u.status
             FROM password_resets pr
             INNER JOIN users u ON u.id = pr.user_id
@@ -68,21 +68,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $validToken && $user) {
         setFlash('error', 'Passwords do not match.');
     } else {
         try {
-            $db = Database::getConnection();
+            $pdo = Database::getConnection();
 
             // Hash the new password.
             $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
 
             // Update the user's password.
-            $updateStmt = $db->prepare("UPDATE users SET password = ? WHERE id = ? LIMIT 1");
+            $updateStmt = $pdo->prepare("UPDATE users SET password = ? WHERE id = ? LIMIT 1");
             $updateStmt->execute([$hashedPassword, $user['user_id']]);
 
             // Delete the reset token immediately. This makes the reset link single-use.
-            $deleteStmt = $db->prepare("DELETE FROM password_resets WHERE id = ?");
+            $deleteStmt = $pdo->prepare("DELETE FROM password_resets WHERE id = ?");
             $deleteStmt->execute([$user['reset_id']]);
 
             // Delete any other reset tokens belonging to this user as an additional security measure.
-            $deleteOtherStmt = $db->prepare("DELETE FROM password_resets WHERE user_id = ?");
+            $deleteOtherStmt = $pdo->prepare("DELETE FROM password_resets WHERE user_id = ?");
             $deleteOtherStmt->execute([$user['user_id']]);
 
             // Success message.

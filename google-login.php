@@ -69,10 +69,10 @@ try {
     }
 
     // DATABASE CONNECTION
-    $db = Database::getConnection();
+    $pdo = Database::getConnection();
 
     // FIND USER BY GOOGLE ID
-    $stmt = $db->prepare("
+    $stmt = $pdo->prepare("
         SELECT id, name, email, password, phone, address, role, status, google_id
         FROM users
         WHERE google_id = ?
@@ -85,7 +85,7 @@ try {
 
     // IF GOOGLE ID DOESN'T EXIST, TRY MATCHING BY EMAIL
     if (!$user) {
-        $stmt = $db->prepare("
+        $stmt = $pdo->prepare("
             SELECT id, name, email, password, phone, address, role, status, google_id
             FROM users
             WHERE email = ?
@@ -112,7 +112,7 @@ try {
 
         // Link Google account if email already exists
         if (empty($user['google_id']) || $user['google_id'] !== $googleId) {
-            $update = $db->prepare("UPDATE users SET google_id = ? WHERE id = ?");
+            $update = $pdo->prepare("UPDATE users SET google_id = ? WHERE id = ?");
             $update->execute([$googleId, $user['id']]);
         }
 
@@ -132,7 +132,7 @@ try {
     }
 
     // CREATE NEW GOOGLE USER
-    $stmt = $db->prepare("
+    $stmt = $pdo->prepare("
         INSERT INTO users (name, email, password, google_id, role, status)
         VALUES (?, ?, NULL, ?, 'customer', 'active')
     ");
@@ -140,7 +140,7 @@ try {
     $stmt->execute([$name, $email, $googleId]);
 
     // Get newly created user ID
-    $userId = (int) $db->lastInsertId();
+    $userId = (int) $pdo->lastInsertId();
 
     // CREATE SESSION
     session_regenerate_id(true);

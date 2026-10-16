@@ -22,10 +22,10 @@ if ($userId <= 0 || $orderId <= 0) {
     exit;
 }
 
-$db = Database::getConnection();
+$pdo = Database::getConnection();
 
 // Fetch Order
-$orderStmt = $db->prepare("
+$orderStmt = $pdo->prepare("
     SELECT id, order_number, user_id, total_amount, payment_status, order_status
     FROM orders
     WHERE id = ? AND user_id = ?
@@ -73,10 +73,10 @@ if ($gateway === 'payhere') {
 
 /* Update Database State */
 try {
-    $db->beginTransaction();
+    $pdo->beginTransaction();
 
     // 1. Update Order Status
-    $updateOrder = $db->prepare("
+    $updateOrder = $pdo->prepare("
         UPDATE orders
         SET payment_status = 'paid',
             order_status = 'processing',
@@ -86,7 +86,7 @@ try {
     $updateOrder->execute([$orderId]);
 
     // 2. Update Payments Record
-    $updatePayment = $db->prepare("
+    $updatePayment = $pdo->prepare("
         UPDATE payments
         SET transaction_id = ?,
             payment_method = ?,
@@ -102,7 +102,7 @@ try {
         $orderId
     ]);
 
-    $db->commit();
+    $pdo->commit();
 
     // Send payment confirmation email with invoice PDF
     sendOrderStatusUpdateEmail($orderId, 'processing', 'paid');
@@ -114,8 +114,8 @@ try {
     header('Location: ' . APP_URL . '/customer/orders.php?order=' . urlencode($order['order_number']));
     exit;
 } catch (\Throwable $e) {
-    if ($db->inTransaction()) {
-        $db->rollBack();
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
     }
     error_log('Payment Confirmation DB Error: ' . $e->getMessage());
     setFlash('error', 'Payment confirmed, but updating your order record encountered an issue. Please contact support.');

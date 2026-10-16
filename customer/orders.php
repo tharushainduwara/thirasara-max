@@ -27,11 +27,11 @@ if (empty($_SESSION['csrf_token'])) {
 }
 $csrfToken = $_SESSION['csrf_token'];
 
-$db = Database::getConnection();
+$pdo = Database::getConnection();
 
 /*Current User Data*/
 
-$userStmt = $db->prepare("
+$userStmt = $pdo->prepare("
     SELECT id, name, email, phone, address
     FROM users
     WHERE id = ? AND status = 'active'
@@ -67,7 +67,7 @@ $selectedOrderItems  = [];
 $selectedPayment     = null;
 
 if ($selectedOrderNumber !== '') {
-    $orderStmt = $db->prepare("
+    $orderStmt = $pdo->prepare("
         SELECT
             o.id, o.order_number, o.user_id, o.total_amount,
             o.payment_status, o.order_status, o.shipping_address,
@@ -85,7 +85,7 @@ if ($selectedOrderNumber !== '') {
         exit;
     }
 
-    $itemsStmt = $db->prepare("
+    $itemsStmt = $pdo->prepare("
         SELECT
             oi.id, oi.product_id, oi.quantity, oi.unit_price, oi.subtotal,
             p.name, p.brand, p.image_url, p.category
@@ -97,7 +97,7 @@ if ($selectedOrderNumber !== '') {
     $itemsStmt->execute([$selectedOrder['id']]);
     $selectedOrderItems = $itemsStmt->fetchAll(PDO::FETCH_ASSOC);
 
-    $paymentStmt = $db->prepare("
+    $paymentStmt = $pdo->prepare("
         SELECT id, transaction_id, payment_method, amount, payment_status, payment_date
         FROM payments
         WHERE order_id = ?
@@ -110,7 +110,7 @@ if ($selectedOrderNumber !== '') {
 
 /*Order History & Metrics*/
 
-$ordersStmt = $db->prepare("
+$ordersStmt = $pdo->prepare("
     SELECT
         o.id, o.order_number, o.total_amount, o.payment_status,
         o.order_status, o.shipping_address, o.contact_phone,

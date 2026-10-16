@@ -44,14 +44,14 @@ if (!hash_equals($localMd5sig, $md5sig)) {
     exit('Invalid Signature');
 }
 
-$db = Database::getConnection();
+$pdo = Database::getConnection();
 
 // Locate order
 if ($internalOrderId > 0) {
-    $stmt = $db->prepare("SELECT id, order_number, payment_status FROM orders WHERE id = ? LIMIT 1");
+    $stmt = $pdo->prepare("SELECT id, order_number, payment_status FROM orders WHERE id = ? LIMIT 1");
     $stmt->execute([$internalOrderId]);
 } else {
-    $stmt = $db->prepare("SELECT id, order_number, payment_status FROM orders WHERE order_number = ? LIMIT 1");
+    $stmt = $pdo->prepare("SELECT id, order_number, payment_status FROM orders WHERE order_number = ? LIMIT 1");
     $stmt->execute([$orderNumber]);
 }
 $order = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -68,9 +68,9 @@ $orderId = (int) $order['id'];
 if ((int) $statusCode === 2) {
     if ($order['payment_status'] !== 'paid') {
         try {
-            $db->beginTransaction();
+            $pdo->beginTransaction();
 
-            $updateOrder = $db->prepare("
+            $updateOrder = $pdo->prepare("
                 UPDATE orders
                 SET payment_status = 'paid',
                     order_status = 'processing',
@@ -79,7 +79,7 @@ if ((int) $statusCode === 2) {
             ");
             $updateOrder->execute([$orderId]);
 
-            $updatePayment = $db->prepare("
+            $updatePayment = $pdo->prepare("
                 UPDATE payments
                 SET transaction_id = ?,
                     payment_method = 'payhere',
@@ -94,15 +94,15 @@ if ((int) $statusCode === 2) {
                 $orderId
             ]);
 
-            $db->commit();
+            $pdo->commit();
             error_log("PayHere IPN: Order {$orderNumber} successfully marked as PAID");
 
             // Send payment confirmation email with invoice PDF
             sendOrderStatusUpdateEmail($orderId, 'processing', 'paid');
 
         } catch (\Throwable $e) {
-            if ($db->inTransaction()) {
-                $db->rollBack();
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
             }
             error_log("PayHere IPN DB Exception: " . $e->getMessage());
             http_response_code(500);
@@ -113,30 +113,30 @@ if ((int) $statusCode === 2) {
     // Payment Failed or Cancelled - restore inventory
     if ($order['payment_status'] === 'pending') {
         try {
-            $db->beginTransaction();
+            $pdo->beginTransaction();
 
             // Fetch items
-            $itemStmt = $db->prepare("SELECT product_id, quantity FROM order_items WHERE order_id = ?");
+            $itemStmt = $pdo->prepare("SELECT product_id, quantity FROM order_items WHERE order_id = ?");
             $itemStmt->execute([$orderId]);
             $items = $itemStmt->fetchAll(PDO::FETCH_ASSOC);
 
             // Restore stock
-            $stockStmt = $db->prepare("UPDATE inventory SET stock_quantity = stock_quantity + ?, updated_at = CURRENT_TIMESTAMP WHERE product_id = ?");
+            $stockStmt = $pdo->prepare("UPDATE inventory SET stock_quantity = stock_quantity + ?, updated_at = CURRENT_TIMESTAMP WHERE product_id = ?");
             foreach ($items as $it) {
                 $stockStmt->execute([(int)$it['quantity'], (int)$it['product_id']]);
             }
 
             // Mark cancelled
-            $db->prepare("UPDATE orders SET payment_status = 'failed', order_status = 'cancelled', updated_at = NOW() WHERE id = ?")->execute([$orderId]);
-            $db->prepare("UPDATE payments SET payment_status = 'failed', payment_payload = ? WHERE order_id = ?")->execute([
+            $pdo->prepare("UPDATE orders SET payment_status = 'failed', order_status = 'cancelled', updated_at = NOW() WHERE id = ?")->execute([$orderId]);
+            $pdo->prepare("UPDATE payments SET payment_status = 'failed', payment_payload = ? WHERE order_id = ?")->execute([
                 json_encode($_POST, JSON_UNESCAPED_SLASHES),
                 $orderId
             ]);
 
-            $db->commit();
+            $pdo->commit();
         } catch (\Throwable $e) {
-            if ($db->inTransaction()) {
-                $db->rollBack();
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
             }
         }
     }

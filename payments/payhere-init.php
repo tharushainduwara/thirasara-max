@@ -20,10 +20,10 @@ if ($userId <= 0 || $orderId <= 0) {
     exit;
 }
 
-$db = Database::getConnection();
+$pdo = Database::getConnection();
 
 // Fetch Order
-$orderStmt = $db->prepare("
+$orderStmt = $pdo->prepare("
     SELECT id, order_number, user_id, total_amount, payment_status, order_status, shipping_address, contact_phone
     FROM orders
     WHERE id = ? AND user_id = ?
@@ -45,7 +45,7 @@ if ($order['payment_status'] === 'paid') {
 }
 
 // Fetch user profile for address / name parts
-$userStmt = $db->prepare("SELECT name, email, phone, address FROM users WHERE id = ? LIMIT 1");
+$userStmt = $pdo->prepare("SELECT name, email, phone, address FROM users WHERE id = ? LIMIT 1");
 $userStmt->execute([$userId]);
 $userProfile = $userStmt->fetch(PDO::FETCH_ASSOC) ?: [];
 
@@ -81,7 +81,7 @@ $cancelUrl = APP_URL . '/payments/cancel.php?order_id=' . $order['id'];
 $notifyUrl = APP_URL . '/payments/payhere-notify.php';
 
 // Log pending PayHere transaction in payments table
-$updatePayStmt = $db->prepare("
+$updatePayStmt = $pdo->prepare("
     UPDATE payments 
     SET payment_method = 'payhere',
         transaction_id = ?,

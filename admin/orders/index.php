@@ -100,7 +100,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                         // Send payment status update email to customer
                         sendOrderStatusUpdateEmail($orderId, $currentOrderStatus, $newPayment);
-
                     } catch (PDOException $e) {
                         error_log('Error updating payment status: ' . $e->getMessage());
                         setFlash('error', 'Database error updating payment status.');
@@ -231,7 +230,6 @@ try {
     $stmt = $pdo->prepare($dataSql);
     $stmt->execute($params);
     $orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
 } catch (PDOException $e) {
     error_log('Orders query error: ' . $e->getMessage());
     $orders = [];

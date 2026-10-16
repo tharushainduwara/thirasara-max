@@ -42,10 +42,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         setFlash('error', 'Passwords do not match.');
     } else {
         try {
-            $db = Database::getConnection();
+            $pdo = Database::getConnection();
 
             // Check whether email already exists
-            $checkStmt = $db->prepare("SELECT id FROM users WHERE email = ? LIMIT 1");
+            $checkStmt = $pdo->prepare("SELECT id FROM users WHERE email = ? LIMIT 1");
             $checkStmt->execute([$email]);
 
             if ($checkStmt->fetch()) {
@@ -55,7 +55,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
 
                 // Create customer account
-                $stmt = $db->prepare("
+                $stmt = $pdo->prepare("
                     INSERT INTO users (name, email, password, phone, address, role, status)
                     VALUES (?, ?, ?, ?, ?, 'customer', 'active')
                 ");

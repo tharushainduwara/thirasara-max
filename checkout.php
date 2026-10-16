@@ -23,11 +23,11 @@ if ($userId <= 0) {
     exit;
 }
 
-$db = Database::getConnection();
+$pdo = Database::getConnection();
 
 /* Load Current User*/
 
-$userStmt = $db->prepare("
+$userStmt = $pdo->prepare("
     SELECT id, name, email, phone, address
     FROM users
     WHERE id = ? AND status = 'active'
@@ -76,7 +76,7 @@ if (empty($productIds)) {
 /*Fetch Products & Initial Inventory Validation*/
 
 $placeholders = implode(',', array_fill(0, count($productIds), '?'));
-$productStmt = $db->prepare("
+$productStmt = $pdo->prepare("
     SELECT
         p.id,
         p.name,
@@ -184,10 +184,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     try {
-        $db->beginTransaction();
+        $pdo->beginTransaction();
 
         // Lock & verify current inventory under transaction
-        $stockStmt = $db->prepare("
+        $stockStmt = $pdo->prepare("
             SELECT
                 p.id,
                 p.name,
@@ -236,7 +236,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Generate Order Number
         $orderNumber = '';
         $orderCreated = false;
-        $checkOrderStmt = $db->prepare("SELECT id FROM orders WHERE order_number = ? LIMIT 1");
+        $checkOrderStmt = $pdo->prepare("SELECT id FROM orders WHERE order_number = ? LIMIT 1");
 
         for ($attempt = 0; $attempt < 10; $attempt++) {
             $candidate = 'TM-' . date('Ymd') . '-' . strtoupper(bin2hex(random_bytes(3)));
@@ -253,7 +253,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         // Insert Order
-        $orderStmt = $db->prepare("
+        $orderStmt = $pdo->prepare("
             INSERT INTO orders (
                 order_number, user_id, total_amount, payment_status, 
                 order_status, shipping_address, contact_phone, notes
@@ -268,19 +268,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $notes !== '' ? $notes : null
         ]);
 
-        $orderId = (int) $db->lastInsertId();
+        $orderId = (int) $pdo->lastInsertId();
         if ($orderId <= 0) {
             throw new Exception('Unable to create your order.');
         }
 
         // Insert Order Items
-        $orderItemStmt = $db->prepare("
+        $orderItemStmt = $pdo->prepare("
             INSERT INTO order_items (order_id, product_id, quantity, unit_price, subtotal)
             VALUES (?, ?, ?, ?, ?)
         ");
 
         // Deduct Inventory
-        $inventoryStmt = $db->prepare("
+        $inventoryStmt = $pdo->prepare("
             UPDATE inventory
             SET stock_quantity = stock_quantity - ?,
                 updated_at = CURRENT_TIMESTAMP
@@ -321,7 +321,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'created_at'     => date('c')
         ], JSON_UNESCAPED_SLASHES);
 
-        $paymentStmt = $db->prepare("
+        $paymentStmt = $pdo->prepare("
             INSERT INTO payments (order_id, transaction_id, payment_method, amount, payment_status, payment_payload)
             VALUES (?, ?, ?, ?, 'pending', ?)
         ");
@@ -333,7 +333,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $paymentPayload
         ]);
 
-        $db->commit();
+        $pdo->commit();
 
         unset($_SESSION['checkout_csrf']);
 
@@ -358,8 +358,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         header('Location: ' . APP_URL . '/customer/orders.php?order=' . urlencode($orderNumber));
         exit;
     } catch (Throwable $e) {
-        if ($db->inTransaction()) {
-            $db->rollBack();
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
         }
         error_log('Checkout Error: ' . $e->getMessage());
         setFlash('error', $e->getMessage());

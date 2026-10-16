@@ -49,15 +49,15 @@ if ($orderNumber === '') {
 }
 
 $cancellableStatuses = ['placed', 'processing'];
-$db = Database::getConnection();
+$pdo = Database::getConnection();
 
 /*Process Order Cancellation*/
 
 try {
-    $db->beginTransaction();
+    $pdo->beginTransaction();
 
     // Lock and verify order ownership
-    $orderStmt = $db->prepare("
+    $orderStmt = $pdo->prepare("
         SELECT id, order_number, user_id, order_status, payment_status
         FROM orders
         WHERE order_number = ? AND user_id = ?
@@ -68,7 +68,7 @@ try {
     $order = $orderStmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$order) {
-        $db->rollBack();
+        $pdo->rollBack();
         setFlash('error', 'The requested order could not be found.');
         header('Location: ' . APP_URL . '/customer/orders.php');
         exit;
@@ -76,7 +76,7 @@ try {
 
     // Status transition check
     if (!in_array($order['order_status'], $cancellableStatuses, true)) {
-        $db->rollBack();
+        $pdo->rollBack();
         $reason = $order['order_status'] === 'cancelled'
             ? 'been cancelled.'
             : 'progressed past processing.';
@@ -94,7 +94,7 @@ try {
 
     // Update Order Status
     $placeholders = implode(',', array_fill(0, count($cancellableStatuses), '?'));
-    $updateOrderStmt = $db->prepare("
+    $updateOrderStmt = $pdo->prepare("
         UPDATE orders
         SET order_status = 'cancelled',
             payment_status = ?,
@@ -112,14 +112,14 @@ try {
     );
 
     if ($updateOrderStmt->rowCount() !== 1) {
-        $db->rollBack();
+        $pdo->rollBack();
         setFlash('error', 'This order could not be cancelled. Please refresh and try again.');
         header('Location: ' . APP_URL . '/customer/orders.php?order=' . urlencode($order['order_number']));
         exit;
     }
 
     // Restore Inventory & Reactivate Products
-    $itemsStmt = $db->prepare("
+    $itemsStmt = $pdo->prepare("
         SELECT product_id, quantity
         FROM order_items
         WHERE order_id = ?
@@ -127,7 +127,7 @@ try {
     $itemsStmt->execute([$order['id']]);
     $items = $itemsStmt->fetchAll(PDO::FETCH_ASSOC);
 
-    $restoreStockStmt = $db->prepare("
+    $restoreStockStmt = $pdo->prepare("
         INSERT INTO inventory (product_id, stock_quantity, low_stock_threshold, updated_at)
         VALUES (?, ?, 5, NOW())
         ON DUPLICATE KEY UPDATE
@@ -135,7 +135,7 @@ try {
             updated_at = NOW()
     ");
 
-    $reactivateProductStmt = $db->prepare("
+    $reactivateProductStmt = $pdo->prepare("
         UPDATE products
         SET status = 'available',
             updated_at = NOW()
@@ -154,7 +154,7 @@ try {
 
     // Update Pending Payment Records
     if ($order['payment_status'] === 'pending') {
-        $updatePaymentStmt = $db->prepare("
+        $updatePaymentStmt = $pdo->prepare("
             UPDATE payments
             SET payment_status = 'failed'
             WHERE order_id = ? AND payment_status = 'pending'
@@ -163,7 +163,7 @@ try {
     }
 
     // Customer Notification
-    $notifyStmt = $db->prepare("
+    $notifyStmt = $pdo->prepare("
         INSERT INTO notifications (user_id, title, message, type, is_read, email_sent, created_at)
         VALUES (?, ?, ?, 'general', 0, 0, NOW())
     ");
@@ -173,14 +173,14 @@ try {
         "Your order {$order['order_number']} has been cancelled and any reserved stock has been released."
     ]);
 
-    $db->commit();
+    $pdo->commit();
 
     setFlash('success', "Order {$order['order_number']} has been cancelled successfully.");
     header('Location: ' . APP_URL . '/customer/orders.php?order=' . urlencode($order['order_number']));
     exit;
 } catch (Throwable $exception) {
-    if ($db->inTransaction()) {
-        $db->rollBack();
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
     }
 
     error_log("[cancel_order] Failed to cancel order '{$orderNumber}' for user {$userId}: " . $exception->getMessage());
