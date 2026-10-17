@@ -111,7 +111,7 @@ try {
     unset($_SESSION['cart']);
 
     setFlash('success', 'Payment verified successfully! Your order has been placed and is now being processed.');
-    header('Location: ' . APP_URL . '/customer/orders.php?order=' . urlencode($order['order_number']));
+    header('Location: ' . APP_URL . '/order-confirmation.php?order=' . urlencode($order['order_number']));
     exit;
 } catch (\Throwable $e) {
     if ($pdo->inTransaction()) {

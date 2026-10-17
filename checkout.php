@@ -355,7 +355,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Cash on delivery
         unset($_SESSION['cart']);
         setFlash('success', 'Your order has been placed successfully.');
-        header('Location: ' . APP_URL . '/customer/orders.php?order=' . urlencode($orderNumber));
+        header('Location: ' . APP_URL . '/order-confirmation.php?order=' . urlencode($orderNumber));
         exit;
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) {

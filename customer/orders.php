@@ -220,6 +220,18 @@ require_once __DIR__ . '/../includes/header.php';
                         </button>
                     <?php endif; ?>
 
+                    <a href="<?= APP_URL ?>/order-confirmation.php?order=<?= urlencode($selectedOrder['order_number']) ?>&download=pdf"
+                        class="inline-flex items-center justify-center gap-2 rounded-xl bg-brand-red px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-redHover">
+                        <i data-lucide="download" class="w-4 h-4"></i>
+                        Invoice PDF
+                    </a>
+
+                    <a href="<?= APP_URL ?>/order-confirmation.php?order=<?= urlencode($selectedOrder['order_number']) ?>"
+                        class="inline-flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50">
+                        <i data-lucide="receipt" class="w-4 h-4"></i>
+                        Receipt
+                    </a>
+
                     <a href="<?= APP_URL ?>/customer/orders.php"
                         class="inline-flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50">
                         <i data-lucide="arrow-left" class="w-4 h-4"></i>

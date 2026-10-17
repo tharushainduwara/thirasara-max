@@ -279,7 +279,7 @@ function loadOrderEmailData(int $orderId): ?array
         return null;
     }
 
-    $itemStmt = $db->prepare("
+    $itemStmt = $pdo->prepare("
         SELECT
             oi.quantity, oi.unit_price, oi.subtotal,
             p.name, p.brand
@@ -291,7 +291,7 @@ function loadOrderEmailData(int $orderId): ?array
     $itemStmt->execute([$orderId]);
     $items = $itemStmt->fetchAll(PDO::FETCH_ASSOC);
 
-    $payStmt = $db->prepare("
+    $payStmt = $pdo->prepare("
         SELECT transaction_id, payment_method, amount, payment_status, payment_payload, payment_date
         FROM payments WHERE order_id = ? ORDER BY id DESC LIMIT 1
     ");
