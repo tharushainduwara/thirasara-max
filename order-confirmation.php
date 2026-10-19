@@ -17,10 +17,7 @@ $currentUser = getCurrentUser();
 $currentUserId = (int) ($currentUser['id'] ?? 0);
 $currentUserRole = (string) ($currentUser['role'] ?? '');
 
-/* --------------------------------------------------------------------------
- * 1. Resolve Target Order
- * Accepts ?order=TM-XXXXXXXX or ?order_id=123 or falls back to $_SESSION['last_order']
- * -------------------------------------------------------------------------- */
+/*  Resolve Target Order*/
 $orderNumber = trim($_GET['order'] ?? '');
 $orderIdParam = filter_input(INPUT_GET, 'order_id', FILTER_VALIDATE_INT) ?: 0;
 
@@ -43,9 +40,7 @@ if (empty($orderNumber) && $orderIdParam <= 0) {
     exit;
 }
 
-/* --------------------------------------------------------------------------
- * 2. Fetch Order Data
- * -------------------------------------------------------------------------- */
+/* Fetch Order Data */
 try {
     if (!empty($orderNumber)) {
         $orderStmt = $pdo->prepare("
@@ -102,10 +97,8 @@ if (!$order) {
 $orderId = (int) $order['id'];
 $orderNumber = (string) $order['order_number'];
 
-/* --------------------------------------------------------------------------
- * 3. Access Control Verification
- * Allows: Owner of the order, Store Admin, or session holding last_order matching this order
- * -------------------------------------------------------------------------- */
+/* Access Control Verification
+ Allows: Owner of the order, Store Admin, or session holding last_order matching this order*/
 $isOwner = ($currentUserId > 0 && $currentUserId === (int) $order['user_id']);
 $isAdmin = ($currentUserRole === 'admin');
 $isJustPlacedInSession = (
@@ -124,9 +117,7 @@ if (!$isOwner && !$isAdmin && !$isJustPlacedInSession) {
     exit;
 }
 
-/* --------------------------------------------------------------------------
- * 4. Fetch Order Line Items & Payment Information
- * -------------------------------------------------------------------------- */
+/* Fetch Order Line Items & Payment Information */
 try {
     $itemsStmt = $pdo->prepare("
         SELECT 
@@ -161,9 +152,7 @@ try {
     $payment = [];
 }
 
-/* --------------------------------------------------------------------------
- * 5. Handle PDF Invoice Download
- * -------------------------------------------------------------------------- */
+/* Handle PDF Invoice Download */
 $downloadAction = trim($_GET['download'] ?? $_GET['action'] ?? '');
 if ($downloadAction === 'pdf' || $downloadAction === 'download_invoice') {
     // Ensure invoice number exists
@@ -201,9 +190,7 @@ if ($downloadAction === 'pdf' || $downloadAction === 'download_invoice') {
     }
 }
 
-/* --------------------------------------------------------------------------
- * 6. View Calculations & Formatters
- * -------------------------------------------------------------------------- */
+/* View Calculations & Formatters */
 $pageTitle = 'Order Confirmed — ' . $orderNumber;
 
 $itemsSubtotal = 0.00;
