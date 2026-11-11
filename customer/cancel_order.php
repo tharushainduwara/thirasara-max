@@ -150,6 +150,19 @@ try {
 
         $restoreStockStmt->execute([(int) $item['product_id'], $quantity]);
         $reactivateProductStmt->execute([(int) $item['product_id']]);
+
+        try {
+            $pdo->prepare("
+                INSERT INTO inventory_logs (product_id, change_type, quantity_change, resulting_stock, notes, user_id)
+                SELECT ?, 'return', ?, stock_quantity, ?, ? FROM inventory WHERE product_id = ?
+            ")->execute([
+                (int) $item['product_id'],
+                $quantity,
+                "Order cancellation #{$order['order_number']}",
+                $userId,
+                (int) $item['product_id']
+            ]);
+        } catch (Throwable $e) {}
     }
 
     // Update Pending Payment Records

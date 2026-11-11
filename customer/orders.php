@@ -393,6 +393,15 @@ require_once __DIR__ . '/../includes/header.php';
                                                 <p class="mt-1 text-xs text-gray-500">
                                                     Rs. <?= number_format((float) $item['unit_price'], 2) ?> × <?= (int) $item['quantity'] ?>
                                                 </p>
+                                                <?php if ($selectedOrder['order_status'] === 'delivered'): ?>
+                                                    <div class="mt-2.5">
+                                                        <a href="<?= APP_URL ?>/repair-booking.php?item=<?= (int) $item['id'] ?>"
+                                                           class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-xs font-bold text-gray-700 hover:bg-red-50 hover:text-brand-red hover:border-red-200 transition shadow-sm">
+                                                            <i data-lucide="wrench" class="w-3.5 h-3.5 text-brand-red"></i>
+                                                            Book Repair
+                                                        </a>
+                                                    </div>
+                                                <?php endif; ?>
                                             </div>
                                         </div>
                                     </div>

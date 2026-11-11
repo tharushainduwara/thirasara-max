@@ -7,6 +7,7 @@ require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/includes/invoice_generator.php';
+require_once __DIR__ . '/includes/warranty_helpers.php';
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -130,6 +131,9 @@ try {
     ");
     $itemsStmt->execute([$orderId]);
     $items = $itemsStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Ensure digital warranties are populated for eligible items
+    $orderWarranties = ensureOrderWarranties($pdo, $orderId);
 
     $payStmt = $pdo->prepare("
         SELECT id, transaction_id, payment_method, amount, payment_status, payment_payload, payment_date

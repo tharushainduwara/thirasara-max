@@ -490,3 +490,146 @@ function buildOrderEmailPlain(array $order, string $type): string
         "Thank you for choosing Thirasara Max!\n" .
         "© " . date('Y') . " Thirasara Max Mobile.";
 }
+
+
+
+/**
+ * Send an email notification when staff/admin replies to a customer inquiry.
+ */
+function sendInquiryReplyEmail(
+    string $customerEmail,
+    string $customerName,
+    string $subject,
+    string $inquiryMessage,
+    string $replyMessage
+): bool {
+    $mail = new PHPMailer(true);
+
+    try {
+        configureSMTP($mail);
+        $mail->addAddress($customerEmail, $customerName);
+
+        $mail->isHTML(true);
+        $mail->Subject = 'Response to your inquiry: ' . $subject;
+
+        $safeName    = htmlspecialchars($customerName, ENT_QUOTES, 'UTF-8');
+        $safeSubject = htmlspecialchars($subject, ENT_QUOTES, 'UTF-8');
+        $safeInquiry = nl2br(htmlspecialchars($inquiryMessage, ENT_QUOTES, 'UTF-8'));
+        $safeReply   = nl2br(htmlspecialchars($replyMessage, ENT_QUOTES, 'UTF-8'));
+
+        $mail->Body = "<!DOCTYPE html>
+<html>
+<body style='margin:0;padding:30px;background:#f5f5f5;font-family:Arial,sans-serif;'>
+    <div style='max-width:600px;margin:auto;background:#ffffff;padding:35px;border-radius:12px;border:1px solid #e5e7eb;'>
+        <div style='border-bottom:2px solid #e52b34;padding-bottom:15px;margin-bottom:20px;'>
+            <h2 style='color:#e52b34;margin:0;font-size:20px;'>THIRASARA MAX MOBILE</h2>
+            <p style='color:#6b7280;font-size:12px;margin:3px 0 0;'>Customer Care &amp; Support Team</p>
+        </div>
+        <p style='font-size:15px;color:#1f2937;'>Hello <strong>{$safeName}</strong>,</p>
+        <p style='font-size:14px;color:#4b5563;line-height:1.5;'>Thank you for reaching out to Thirasara Max. Our team has reviewed your inquiry regarding <strong>{$safeSubject}</strong>.</p>
+        
+        <div style='background:#f9fafb;border-left:4px solid #9ca3af;padding:12px 16px;margin:20px 0;border-radius:0 8px 8px 0;'>
+            <p style='margin:0 0 6px;font-size:11px;font-weight:bold;text-transform:uppercase;color:#6b7280;'>Your Original Message:</p>
+            <p style='margin:0;font-size:13px;color:#4b5563;font-style:italic;'>{$safeInquiry}</p>
+        </div>
+
+        <div style='background:#f0fdf4;border-left:4px solid #16a34a;padding:14px 18px;margin:20px 0;border-radius:0 8px 8px 0;'>
+            <p style='margin:0 0 6px;font-size:11px;font-weight:bold;text-transform:uppercase;color:#16a34a;'>Our Support Team's Response:</p>
+            <p style='margin:0;font-size:14px;color:#15803d;line-height:1.6;'>{$safeReply}</p>
+        </div>
+
+        <p style='font-size:13px;color:#6b7280;margin-top:25px;'>If you have any further questions, feel free to reply to this email or visit our store at Galle - Colombo Rd, Wadduwa.</p>
+        
+        <hr style='border:0;border-top:1px solid #e5e7eb;margin:25px 0;'>
+        <p style='color:#9ca3af;font-size:12px;margin:0;'>📞 077 123 4567 &nbsp;|&nbsp; ✉️ support@thirasaramax.lk</p>
+        <p style='color:#9ca3af;font-size:11px;margin:6px 0 0;'>© " . date('Y') . " Thirasara Max Mobile. All rights reserved.</p>
+    </div>
+</body>
+</html>";
+
+        $mail->AltBody = "Hello {$customerName},\n\n" .
+            "Thank you for contacting Thirasara Max regarding: {$subject}\n\n" .
+            "Our Response:\n{$replyMessage}\n\n" .
+            "Original Inquiry:\n{$inquiryMessage}\n\n" .
+            "Regards,\nThirasara Max Support Team\n077 123 4567 | support@thirasaramax.lk";
+
+        $mail->send();
+        return true;
+    } catch (Exception $e) {
+        error_log('Inquiry Reply Email Error: ' . $mail->ErrorInfo);
+        return false;
+    }
+}
+
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * LOW STOCK & OUT OF STOCK EMAIL ALERT
+ * ────────────────────────────────────────────────────────────────────────── */
+function sendLowStockAlertEmail(
+    string $productName,
+    int $remainingStock,
+    int $threshold,
+    string $category = ''
+): bool {
+    $mail = new PHPMailer(true);
+
+    try {
+        configureSMTP($mail);
+
+        $adminEmail = $_ENV['MAIL_FROM_EMAIL'] ?? 'info@thirasaramax.lk';
+        $mail->addAddress($adminEmail, 'Inventory Operations');
+
+        $mail->isHTML(true);
+        $isZero = $remainingStock <= 0;
+        $mail->Subject = ($isZero ? 'CRITICAL: Out of Stock Alert - ' : 'Low Stock Warning - ') . $productName;
+
+        $safeName = htmlspecialchars($productName);
+        $safeCat  = htmlspecialchars($category ?: 'General');
+        $color    = $isZero ? '#dc2626' : '#d97706';
+        $badgeText = $isZero ? 'OUT OF STOCK' : 'LOW STOCK WARNING';
+
+        $mail->Body = "<!DOCTYPE html>
+<html>
+<body style='margin:0;padding:30px;background:#f5f5f5;font-family:Arial,sans-serif;'>
+    <div style='max-width:600px;margin:auto;background:#ffffff;padding:35px;border-radius:12px;border:1px solid #e5e7eb;'>
+        <div style='border-bottom:2px solid {$color};padding-bottom:15px;margin-bottom:20px;'>
+            <h2 style='color:#e52b34;margin:0;font-size:20px;'>THIRASARA MAX MOBILE</h2>
+            <p style='color:#6b7280;font-size:12px;margin:3px 0 0;'>Inventory Automated Monitoring System</p>
+        </div>
+        <div style='background:" . ($isZero ? '#fef2f2' : '#fffbeb') . ";border-left:4px solid {$color};padding:14px 18px;margin:20px 0;border-radius:0 8px 8px 0;'>
+            <span style='background:{$color};color:#ffffff;font-size:10px;font-weight:bold;padding:3px 8px;border-radius:4px;letter-spacing:1px;'>{$badgeText}</span>
+            <h3 style='margin:10px 0 4px;font-size:16px;color:#111827;'>{$safeName}</h3>
+            <p style='margin:0;font-size:13px;color:#4b5563;'>Category: <strong>{$safeCat}</strong></p>
+        </div>
+        <table style='width:100%;border-collapse:collapse;margin:20px 0;font-size:13px;'>
+            <tr style='background:#f9fafb;'>
+                <td style='padding:10px;border:1px solid #e5e7eb;color:#6b7280;'>Current Stock Remaining:</td>
+                <td style='padding:10px;border:1px solid #e5e7eb;font-weight:bold;color:{$color};text-align:right;'>{$remainingStock} units</td>
+            </tr>
+            <tr>
+                <td style='padding:10px;border:1px solid #e5e7eb;color:#6b7280;'>Configured Threshold:</td>
+                <td style='padding:10px;border:1px solid #e5e7eb;font-weight:bold;color:#111827;text-align:right;'>{$threshold} units</td>
+            </tr>
+        </table>
+        <p style='font-size:13px;color:#4b5563;line-height:1.5;'>Please restock this item promptly in the administration portal to prevent fulfillment delays or lost sales.</p>
+        <div style='text-align:center;margin:30px 0;'>
+            <a href='" . APP_URL . "/admin/inventory/alerts.php'
+               style='display:inline-block;padding:12px 25px;background:#111827;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:bold;font-size:13px;'>
+                Review Low Stock Alerts &rarr;
+            </a>
+        </div>
+        <hr style='border:0;border-top:1px solid #e5e7eb;margin:25px 0;'>
+        <p style='color:#9ca3af;font-size:11px;margin:0;'>Automated system notification dispatched by Thirasara Max Business Automation.</p>
+    </div>
+</body>
+</html>";
+
+        $mail->AltBody = "{$badgeText}: {$productName}\nCurrent Stock: {$remainingStock}\nThreshold: {$threshold}\nPlease restock at " . APP_URL . "/admin/inventory/alerts.php";
+
+        $mail->send();
+        return true;
+    } catch (Exception $e) {
+        error_log('Low Stock Alert Email Error: ' . $mail->ErrorInfo);
+        return false;
+    }
+}

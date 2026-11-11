@@ -10,7 +10,7 @@ require_once __DIR__ . '/includes/repair_helpers.php';
 
 if (session_status() === PHP_SESSION_NONE) session_start();
 
-/* Repairs are tied to a purchase, so the customer must be signed in */
+/* Repairs require customer login */
 if (!isLoggedIn()) {
     setFlash('error', 'Please sign in to book a repair.');
     header('Location: ' . APP_URL . '/login.php?redirect=repair-booking.php');
@@ -28,12 +28,7 @@ if (!$user) {
     exit;
 }
 
-/*
- * Eligible purchases = items from this customer's DELIVERED orders,
- * for products flagged is_repairable = 1, that don't already have as many
- * open repairs as units bought.
- * (To also allow shipped orders, change the o.order_status condition.)
- */
+/* Eligible store purchases - ONLY products purchased from the store */
 $eligible = [];
 $loadError = false;
 try {
@@ -61,9 +56,14 @@ try {
 
 $errors = [];
 $code   = null;
-$old    = ['item' => '', 'serial' => '', 'issue' => '', 'date' => ''];
+$old    = [
+    'item'   => '',
+    'serial' => '',
+    'issue'  => '',
+    'date'   => date('Y-m-d', strtotime('+3 days'))
+];
 
-// Prefill: ?item=<order_item id> (from the orders page) or ?product=<product id> (from a product page)
+// Prefill: ?item=<order_item id> or ?product=<product id>
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     if (isset($_GET['item'])) {
         $old['item'] = (string)(int)$_GET['item'];
@@ -78,18 +78,32 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (!rp_csrf_check($_POST['csrf'] ?? '')) $errors[] = 'Session expired. Please try again.';
-    foreach ($old as $k => $_) $old[$k] = trim((string)($_POST[$k] ?? ''));
+    if (!rp_csrf_check($_POST['csrf'] ?? '')) {
+        $errors[] = 'Session expired. Please try again.';
+    }
+    foreach ($old as $k => $_) {
+        $old[$k] = trim((string)($_POST[$k] ?? ''));
+    }
 
-    // The chosen purchase must be in the server-side eligible list
-    $chosen = null;
-    foreach ($eligible as $row) {
-        if ((int)$row['item_id'] === (int)$old['item']) {
-            $chosen = $row;
-            break;
+    if (empty($eligible)) {
+        $errors[] = 'Repairs are exclusively available for devices purchased from Thirasara Max Mobile. No eligible delivered purchases were found.';
+    } else {
+        $chosen = null;
+        foreach ($eligible as $row) {
+            if ((int)$row['item_id'] === (int)$old['item']) {
+                $chosen = $row;
+                break;
+            }
+        }
+
+        if (!$chosen) {
+            $errors[] = 'Please select one of your eligible store-purchased devices.';
+        } else {
+            $deviceModel = trim(($chosen['brand'] ? $chosen['brand'] . ' ' : '') . $chosen['name']);
+            $prodId = (int)$chosen['product_id'];
+            $orderItemId = (int)$chosen['item_id'];
         }
     }
-    if (!$chosen) $errors[] = 'Please choose one of your purchased, repairable products.';
 
     if (mb_strlen($old['serial']) > 100) $errors[] = 'Serial / IMEI is too long.';
     if (mb_strlen($old['issue']) < 10 || mb_strlen($old['issue']) > 2000) $errors[] = 'Describe the issue (10 to 2000 characters).';
@@ -99,16 +113,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!$d || $d->format('Y-m-d') !== $old['date']) $errors[] = 'Choose a valid date.';
     elseif ($d < $today || $d > (clone $today)->modify('+60 days')) $errors[] = 'Preferred date must be within the next 60 days.';
 
-    if (!$errors) {
+    if (!$errors && isset($chosen)) {
         try {
             $pdo->beginTransaction();
 
-            // Re-check inside the transaction so a double submit can't exceed the units bought
             $chk = $pdo->prepare("SELECT COUNT(*) FROM repairs
                                   WHERE order_item_id = ? AND repair_status IN ('pending','assigned','in_progress')");
             $chk->execute([$chosen['item_id']]);
             if ((int)$chk->fetchColumn() >= (int)$chosen['quantity']) {
-                throw new RuntimeException('There is already an open repair for this purchase.');
+                throw new RuntimeException('There is already an open repair for this purchased device.');
             }
 
             $code = rp_make_code($pdo);
@@ -118,15 +131,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ->execute([
                     $code,
                     $userId,
-                    (int)$chosen['product_id'],
-                    (int)$chosen['item_id'],
-                    $chosen['name'],
+                    $prodId,
+                    $orderItemId,
+                    $deviceModel,
                     $old['serial'] ?: null,
                     $old['issue'],
                     $old['date']
                 ]);
 
-            rp_notify($pdo, $userId, 'Repair booking received', "Your repair {$code} for {$chosen['name']} has been received.");
+            rp_notify($pdo, $userId, 'Repair booking received', "Your repair {$code} for {$deviceModel} has been received.");
             $pdo->commit();
         } catch (RuntimeException $ex) {
             $pdo->rollBack();
@@ -141,23 +154,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$pageTitle   = 'Book a Repair';
 $currentUser = $user;
-$inputCls = 'mt-1 w-full px-3 py-2.5 sm:px-4 sm:py-3 rounded-lg border border-gray-300 bg-gray-50 text-xs sm:text-sm text-gray-900 placeholder-gray-400 focus:bg-white focus:outline-none focus:border-brand-red transition';
-$labelCls = 'block text-[10px] font-bold uppercase tracking-wider text-gray-700 mt-4 first:mt-0';
-?>
-<?php require_once __DIR__ . '/includes/header.php'; ?>
+$pageTitle   = 'Book a Repair';
+$inputCls    = 'mt-1.5 w-full px-3 py-2.5 sm:px-4 sm:py-3 rounded-lg border border-gray-300 bg-gray-50 text-xs sm:text-sm text-gray-900 placeholder-gray-400 focus:bg-white focus:outline-none focus:border-brand-red transition';
+$labelCls    = 'block text-[10px] font-bold uppercase tracking-wider text-gray-700 mt-4 first:mt-0';
 
-<!-- PAGE HERO (High-Contrast Style) -->
+require_once __DIR__ . '/includes/header.php';
+?>
+
+<!-- PAGE HERO -->
 <section class="bg-gradient-to-r from-gray-900 via-zinc-900 to-gray-900 text-white border-b-4 border-brand-red py-12 mb-10 overflow-hidden rounded-3xl">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
                 <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded bg-brand-red text-white text-[10px] font-bold uppercase tracking-wider mb-3 shadow-sm">
-                    Repair Services
+                    Store Device Service
                 </span>
                 <h1 class="text-3xl sm:text-4xl font-black uppercase tracking-tight text-white">Book a Repair</h1>
-                <p class="text-gray-300 text-xs sm:text-sm mt-2">Choose a product you bought from us and tell us what's wrong.</p>
+                <p class="text-gray-300 text-xs sm:text-sm mt-2">Exclusive technical service and repair care for devices purchased from Thirasara Max Mobile.</p>
             </div>
             <div class="flex items-center gap-3">
                 <a href="<?php echo APP_URL; ?>/customer/repairs.php"
@@ -176,9 +190,7 @@ $labelCls = 'block text-[10px] font-bold uppercase tracking-wider text-gray-700 
 
         <div class="grid lg:grid-cols-3 gap-6 lg:gap-8 items-start">
 
-            <!-- FORM / SUCCESS / EMPTY -->
             <div class="lg:col-span-2">
-
                 <?php if ($code): ?>
                     <div class="bg-white border-2 border-gray-200 rounded-xl shadow-sm p-8 text-center">
                         <div class="w-14 h-14 mx-auto rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center mb-4">
@@ -198,42 +210,41 @@ $labelCls = 'block text-[10px] font-bold uppercase tracking-wider text-gray-700 
                                 class="inline-flex items-center justify-center gap-2 rounded-xl bg-brand-red px-5 py-2.5 text-xs sm:text-sm font-bold text-white shadow-sm transition hover:bg-brand-redHover">
                                 <i data-lucide="wrench" class="w-4 h-4"></i> View My Repairs
                             </a>
-                            <a href="<?php echo APP_URL; ?>/index.php"
+                            <a href="<?php echo APP_URL; ?>/repair-track.php"
                                 class="inline-flex items-center justify-center rounded-xl border-2 border-gray-200 bg-white px-5 py-2.5 text-xs sm:text-sm font-bold text-gray-800 transition hover:bg-gray-100">
-                                Back to Home
+                                Track Status
                             </a>
                         </div>
                     </div>
 
-                <?php elseif ($loadError): ?>
-                    <div class="bg-white border-2 border-red-200 rounded-xl shadow-sm p-8 text-center">
-                        <i data-lucide="alert-circle" class="w-10 h-10 mx-auto text-brand-red"></i>
-                        <p class="mt-3 text-xs sm:text-sm text-gray-600 font-semibold">We couldn't load your purchases right now. Please try again shortly.</p>
-                    </div>
-
-                <?php elseif (!$eligible): ?>
-                    <div class="bg-white border-2 border-gray-200 rounded-xl shadow-sm px-6 py-14 text-center">
-                        <div class="mx-auto w-14 h-14 rounded-xl bg-gray-100 text-gray-400 flex items-center justify-center">
-                            <i data-lucide="package-search" class="w-7 h-7"></i>
+                <?php elseif (empty($eligible)): ?>
+                    <!-- NO ELIGIBLE STORE PURCHASES -->
+                    <div class="bg-white border-2 border-dashed border-gray-300 rounded-2xl shadow-sm p-8 sm:p-12 text-center">
+                        <div class="w-16 h-16 mx-auto rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center mb-4">
+                            <i data-lucide="shield-alert" class="w-8 h-8"></i>
                         </div>
-                        <h2 class="mt-4 text-base font-black uppercase tracking-tight text-gray-900">No repairable purchases found</h2>
-                        <p class="mt-1 max-w-md mx-auto text-xs sm:text-sm leading-relaxed text-gray-500">
-                            Repairs can be booked for repairable products from your <strong>delivered</strong> orders.
-                            Products that already have an open repair aren't listed again.
+                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded bg-amber-100 text-amber-800 text-[10px] font-bold uppercase tracking-wider mb-2">
+                            Policy Notice
+                        </span>
+                        <h2 class="text-xl sm:text-2xl font-black uppercase tracking-tight text-gray-900">Repairs Exclusively for Store Purchases</h2>
+                        <p class="text-xs sm:text-sm text-gray-600 max-w-lg mx-auto mt-2 leading-relaxed">
+                            Thirasara Max Mobile provides repair and warranty servicing <strong>exclusively for mobile devices and electronics purchased directly from our store</strong>. We could not find any delivered, repairable devices in your order history.
                         </p>
-                        <div class="mt-6 flex flex-col sm:flex-row gap-3 justify-center">
-                            <a href="<?php echo APP_URL; ?>/customer/orders.php"
-                                class="inline-flex items-center justify-center gap-2 rounded-xl border-2 border-gray-200 bg-white px-4 py-2.5 text-xs sm:text-sm font-bold text-gray-800 transition hover:bg-gray-100">
-                                View My Orders
-                            </a>
+
+                        <div class="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
                             <a href="<?php echo APP_URL; ?>/products.php"
-                                class="inline-flex items-center justify-center gap-2 rounded-xl bg-brand-red px-4 py-2.5 text-xs sm:text-sm font-bold text-white transition hover:bg-brand-redHover">
-                                <i data-lucide="shopping-bag" class="w-4 h-4"></i> Browse Products
+                                class="inline-flex items-center justify-center gap-2 rounded-xl bg-brand-red px-6 py-3 text-xs sm:text-sm font-bold text-white shadow-sm transition hover:bg-brand-redHover">
+                                <i data-lucide="shopping-bag" class="w-4 h-4"></i> Browse Store Devices
+                            </a>
+                            <a href="<?php echo APP_URL; ?>/customer/orders.php"
+                                class="inline-flex items-center justify-center gap-2 rounded-xl border-2 border-gray-200 bg-white px-6 py-3 text-xs sm:text-sm font-bold text-gray-800 transition hover:bg-gray-100">
+                                <i data-lucide="package" class="w-4 h-4 text-gray-500"></i> My Orders
                             </a>
                         </div>
                     </div>
 
                 <?php else: ?>
+                    <!-- ELIGIBLE STORE PURCHASES FORM -->
                     <div class="bg-white border-2 border-gray-200 rounded-xl shadow-sm p-6 sm:p-8">
 
                         <?php if ($errors): ?>
@@ -251,31 +262,30 @@ $labelCls = 'block text-[10px] font-bold uppercase tracking-wider text-gray-700 
                                 Booking as <strong class="text-gray-900"><?php echo rp_e($user['name']); ?></strong>
                             </div>
 
-                            <p class="text-[10px] font-bold uppercase tracking-wider text-brand-red mb-3">Product &amp; Issue</p>
-
-                            <label class="<?php echo $labelCls; ?>">Your purchase</label>
+                            <label class="<?php echo $labelCls; ?>">Select Store Purchased Device *</label>
+                            <p class="text-[11px] text-gray-500 mb-1.5">Choose which delivered device from your orders needs service:</p>
                             <select name="item" required class="<?php echo $inputCls; ?>">
-                                <option value="">Select a product you bought…</option>
+                                <option value="">-- Choose a delivered product from your purchases --</option>
                                 <?php foreach ($eligible as $row): ?>
                                     <option value="<?php echo (int)$row['item_id']; ?>" <?php echo (string)$row['item_id'] === $old['item'] ? 'selected' : ''; ?>>
                                         <?php echo rp_e(trim(($row['brand'] ? $row['brand'] . ' ' : '') . $row['name'])); ?>
-                                        — Order <?php echo rp_e($row['order_number']); ?> · <?php echo date('d M Y', strtotime($row['ordered_at'])); ?>
+                                        (Order #<?php echo rp_e($row['order_number']); ?> &bull; <?php echo date('M j, Y', strtotime($row['ordered_at'])); ?>)
                                     </option>
                                 <?php endforeach; ?>
                             </select>
 
-                            <label class="<?php echo $labelCls; ?>">Serial / IMEI <span class="normal-case font-medium text-gray-400">(optional)</span></label>
-                            <input name="serial" maxlength="100" value="<?php echo rp_e($old['serial']); ?>" class="<?php echo $inputCls; ?>">
+                            <label class="<?php echo $labelCls; ?>">Device Serial / IMEI <span class="normal-case font-medium text-gray-400">(optional)</span></label>
+                            <input name="serial" maxlength="100" value="<?php echo rp_e($old['serial']); ?>" placeholder="15-digit IMEI or serial number on back / box" class="<?php echo $inputCls; ?>">
 
-                            <label class="<?php echo $labelCls; ?>">What's wrong?</label>
-                            <textarea name="issue" rows="4" required maxlength="2000" class="<?php echo $inputCls; ?>" placeholder="Describe the problem: cracked screen, not charging, water damage…"><?php echo rp_e($old['issue']); ?></textarea>
+                            <label class="<?php echo $labelCls; ?>">Fault / Issue Description *</label>
+                            <textarea name="issue" rows="4" required maxlength="2000" class="<?php echo $inputCls; ?>" placeholder="Describe the problem in detail: broken display, battery drain, power button issue, charging port failure..."><?php echo rp_e($old['issue']); ?></textarea>
 
-                            <label class="<?php echo $labelCls; ?>">Preferred date</label>
+                            <label class="<?php echo $labelCls; ?>">Preferred Service Visit Date *</label>
                             <input name="date" type="date" required min="<?php echo date('Y-m-d'); ?>" max="<?php echo date('Y-m-d', strtotime('+60 days')); ?>" value="<?php echo rp_e($old['date']); ?>" class="<?php echo $inputCls; ?>">
 
                             <button type="submit"
                                 class="mt-6 w-full inline-flex items-center justify-center gap-2 rounded-xl bg-brand-red px-5 py-3 text-xs sm:text-sm font-bold text-white shadow-sm transition hover:bg-brand-redHover">
-                                <i data-lucide="send" class="w-4 h-4"></i> Submit Booking
+                                <i data-lucide="send" class="w-4 h-4"></i> Submit Repair Booking
                             </button>
                         </form>
                     </div>
@@ -285,24 +295,33 @@ $labelCls = 'block text-[10px] font-bold uppercase tracking-wider text-gray-700 
             <!-- SIDEBAR -->
             <aside class="space-y-5">
                 <div class="bg-white border-2 border-gray-200 rounded-xl shadow-sm p-5">
-                    <p class="text-[10px] font-bold uppercase tracking-wider text-brand-red mb-3">Who can book</p>
+                    <p class="text-[10px] font-bold uppercase tracking-wider text-brand-red mb-3">Service Guarantee</p>
                     <ul class="space-y-2.5 text-xs text-gray-600 font-medium">
-                        <li class="flex gap-2.5 items-start"><i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-600 mt-0.5 flex-shrink-0"></i><span>Products you bought from Thirasara Max</span></li>
-                        <li class="flex gap-2.5 items-start"><i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-600 mt-0.5 flex-shrink-0"></i><span>From orders that have been delivered</span></li>
-                        <li class="flex gap-2.5 items-start"><i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-600 mt-0.5 flex-shrink-0"></i><span>Products marked as repairable</span></li>
+                        <li class="flex gap-2.5 items-start">
+                            <i data-lucide="shield-check" class="w-4 h-4 text-emerald-600 mt-0.5 flex-shrink-0"></i>
+                            <span>Exclusively for devices purchased from Thirasara Max Mobile.</span>
+                        </li>
+                        <li class="flex gap-2.5 items-start">
+                            <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-600 mt-0.5 flex-shrink-0"></i>
+                            <span>Certified technicians &amp; 100% genuine replacement parts.</span>
+                        </li>
+                        <li class="flex gap-2.5 items-start">
+                            <i data-lucide="award" class="w-4 h-4 text-emerald-600 mt-0.5 flex-shrink-0"></i>
+                            <span>Active store warranty honors free diagnostic &amp; eligible component repairs.</span>
+                        </li>
+                        <li class="flex gap-2.5 items-start">
+                            <i data-lucide="map-pin" class="w-4 h-4 text-indigo-500 mt-0.5 flex-shrink-0"></i>
+                            <span class="text-indigo-600">Walk-in with your invoice or warranty certificate to our Wadduwa branch.</span>
+                        </li>
                     </ul>
                 </div>
-                <div class="bg-white border-2 border-gray-200 rounded-xl shadow-sm p-5">
-                    <p class="text-[10px] font-bold uppercase tracking-wider text-brand-red mb-3">How it works</p>
-                    <?php foreach ([['clipboard-list', 'Book online', 'Pick your product and describe the issue.'], ['user-check', 'We assign a technician', 'Our team diagnoses your device.'], ['map-pin', 'Track progress', 'Follow every step in My Repairs.']] as $i => $h): ?>
-                        <div class="flex gap-3 <?php echo $i ? 'mt-3.5 pt-3.5 border-t border-gray-100' : ''; ?>">
-                            <div class="w-8 h-8 rounded-lg bg-red-100 text-brand-red flex items-center justify-center flex-shrink-0 font-bold text-xs"><i data-lucide="<?php echo $h[0]; ?>" class="w-4 h-4"></i></div>
-                            <div>
-                                <h3 class="text-xs font-bold text-gray-900"><?php echo $h[1]; ?></h3>
-                                <p class="text-[11px] text-gray-500 leading-relaxed mt-0.5"><?php echo $h[2]; ?></p>
-                            </div>
-                        </div>
-                    <?php endforeach; ?>
+
+                <div class="bg-gray-50 border border-gray-200 rounded-xl p-5">
+                    <p class="text-[10px] font-bold uppercase tracking-wider text-gray-700 mb-2">Need Help?</p>
+                    <p class="text-xs text-gray-500 mb-3">Questions about your warranty or repair coverage?</p>
+                    <a href="<?php echo APP_URL; ?>/warranty-check.php" class="inline-flex items-center gap-1.5 text-xs font-bold text-brand-red hover:underline">
+                        <i data-lucide="search" class="w-3.5 h-3.5"></i> Check Warranty Status &rarr;
+                    </a>
                 </div>
             </aside>
 

@@ -7,6 +7,7 @@ require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/repair_helpers.php';
+require_once __DIR__ . '/../includes/warranty_helpers.php';
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -156,6 +157,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $msg = "Your repair {$code} is complete and ready for pickup."
                         . ($final > 0 ? ' Amount due: ' . rp_money($final) . '.' : ($repair['is_warranty_covered'] ? ' It was covered by warranty.' : ''));
                     rp_notify($pdo, $custId, 'Repair completed', $msg);
+                    ensureRepairWarranty($pdo, $id);
                     $pdo->commit();
                     rp_flash_set('success', 'Repair marked as completed.');
                     break;

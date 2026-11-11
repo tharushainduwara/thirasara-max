@@ -7,6 +7,7 @@ require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/includes/mailer.php';
+require_once __DIR__ . '/includes/warranty_helpers.php';
 
 /* Authentication & Session Verification*/
 
@@ -305,6 +306,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($inventoryStmt->rowCount() !== 1) {
                 throw new Exception('Stock changed while placing your order. Please try again.');
             }
+
+            // Sync stock status & record inventory audit log
+            try {
+                $remSt = $pdo->prepare("SELECT stock_quantity, low_stock_threshold FROM inventory WHERE product_id = ?");
+                $remSt->execute([$item['id']]);
+                $invRow = $remSt->fetch(PDO::FETCH_ASSOC);
+                $newStock = (int) ($invRow['stock_quantity'] ?? 0);
+
+                if ($newStock <= 0) {
+                    $pdo->prepare("UPDATE products SET status = 'out_of_stock' WHERE id = ? AND status != 'discontinued'")
+                        ->execute([$item['id']]);
+                }
+
+                $pdo->prepare("
+                    INSERT INTO inventory_logs (product_id, change_type, quantity_change, resulting_stock, notes, user_id)
+                    VALUES (?, 'order_sale', ?, ?, ?, ?)
+                ")->execute([
+                    $item['id'],
+                    -$item['quantity'],
+                    $newStock,
+                    "Order sale #{$orderNumber}",
+                    $userId
+                ]);
+            } catch (Throwable $e) {
+                error_log('Order inventory log error: ' . $e->getMessage());
+            }
         }
 
         // Create Payment Log
@@ -334,6 +361,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ]);
 
         $pdo->commit();
+
+        // Ensure digital warranties are automatically created for eligible products
+        ensureOrderWarranties($pdo, $orderId);
 
         unset($_SESSION['checkout_csrf']);
 

@@ -7,6 +7,8 @@ require_once __DIR__ . '/../../config/database.php';
 require_once __DIR__ . '/../../includes/auth.php';
 require_once __DIR__ . '/../../includes/functions.php';
 require_once __DIR__ . '/../../includes/repair_helpers.php';
+require_once __DIR__ . '/../../includes/warranty_helpers.php';
+require_once __DIR__ . '/../../includes/invoice_generator.php';
 
 requireAuth(['admin']);
 
@@ -61,6 +63,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $id
                 ]);
 
+                if ($status === 'completed') {
+                    ensureRepairWarranty($pdo, $id);
+                    $chkInv = $pdo->prepare("SELECT id FROM invoices WHERE repair_id = ? LIMIT 1");
+                    $chkInv->execute([$id]);
+                    if (!$chkInv->fetch()) {
+                        $invCode = 'INV-REP-' . date('Ymd') . '-' . sprintf('%04d', $id);
+                        $pdo->prepare("INSERT INTO invoices (invoice_number, repair_id, invoice_type, total_amount, generated_at) VALUES (?, ?, 'repair', ?, NOW())")
+                            ->execute([$invCode, $id, $finalCost]);
+                    }
+                }
+
                 // Fetch customer ID to send notification
                 $custStmt = $pdo->prepare("SELECT user_id, repair_code FROM repairs WHERE id = ?");
                 $custStmt->execute([$id]);
@@ -100,6 +113,40 @@ if (!$repair) {
     setFlash('error', 'Repair booking not found.');
     header('Location: index.php');
     exit;
+}
+
+// Fetch parts & labor
+$partsStmt = $pdo->prepare("SELECT * FROM repair_parts WHERE repair_id = ? ORDER BY id ASC");
+$partsStmt->execute([$id]);
+$repairParts = $partsStmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Fetch technician name
+$tNameStmt = $pdo->prepare("SELECT name FROM users WHERE id = ?");
+$tNameStmt->execute([(int)$repair['technician_id']]);
+$repair['technician_name'] = $tNameStmt->fetchColumn() ?: 'Unassigned';
+
+// Fetch invoice number if exists
+$invStmt = $pdo->prepare("SELECT invoice_number FROM invoices WHERE repair_id = ? LIMIT 1");
+$invStmt->execute([$id]);
+$repair['invoice_number'] = $invStmt->fetchColumn() ?: ('INV-REP-' . sprintf('%04d', $id));
+
+// Handle PDF Download
+if (isset($_GET['download']) && $_GET['download'] === 'pdf') {
+    $tempPdf = generateRepairInvoicePdf($id, $repair, $repairParts);
+    if ($tempPdf && file_exists($tempPdf)) {
+        header('Content-Type: application/pdf');
+        header('Content-Disposition: attachment; filename="Repair-Invoice-' . $repair['repair_code'] . '.pdf"');
+        header('Content-Length: ' . filesize($tempPdf));
+        header('Cache-Control: private, max-age=0, must-revalidate');
+        header('Pragma: public');
+        readfile($tempPdf);
+        @unlink($tempPdf);
+        exit;
+    } else {
+        setFlash('error', 'Unable to generate repair invoice PDF.');
+        header("Location: view.php?id={$id}");
+        exit;
+    }
 }
 
 // Fetch Technicians List
@@ -182,9 +229,14 @@ $pageTitle = "Repair Details - " . $repair['repair_code'];
                         <p class="text-sm text-gray-500 mt-0.5">Manage diagnostics, costs, and technician assignments.</p>
                     </div>
                     <div>
-                        <a href="index.php" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-gray-700 font-bold text-xs hover:bg-gray-50 transition shadow-sm">
-                            <i data-lucide="arrow-left" class="w-4 h-4"></i> Back to Repairs
-                        </a>
+                        <div class="flex items-center gap-2.5">
+                            <a href="view.php?id=<?php echo $id; ?>&download=pdf" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand-red text-white font-bold text-xs hover:bg-brand-redHover transition shadow-sm">
+                                <i data-lucide="file-text" class="w-4 h-4"></i> Download Invoice / Job Sheet PDF
+                            </a>
+                            <a href="index.php" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-gray-700 font-bold text-xs hover:bg-gray-50 transition shadow-sm">
+                                <i data-lucide="arrow-left" class="w-4 h-4"></i> Back to Repairs
+                            </a>
+                        </div>
                     </div>
                 </div>
 
@@ -229,6 +281,58 @@ $pageTitle = "Repair Details - " . $repair['repair_code'];
                                     <?php echo nl2br(rp_e($repair['issue_description'])); ?>
                                 </dd>
                             </div>
+                        </div>
+
+                        <!-- PARTS & LABOUR BREAKDOWN -->
+                        <div class="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+                            <h2 class="text-xs font-bold uppercase tracking-wider text-brand-red mb-4 flex items-center justify-between">
+                                <span>Replaced Parts &amp; Labour Line Items</span>
+                                <span class="text-gray-400 font-normal"><?php echo count($repairParts); ?> item(s)</span>
+                            </h2>
+
+                            <?php if (empty($repairParts)): ?>
+                                <p class="text-xs text-gray-400 italic py-2">No individual replacement parts or labor items have been added to this ticket.</p>
+                            <?php else: ?>
+                                <div class="overflow-x-auto">
+                                    <table class="w-full text-left border-collapse text-xs">
+                                        <thead>
+                                            <tr class="border-b border-gray-200 text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                                                <th class="py-2.5">Type</th>
+                                                <th class="py-2.5">Description</th>
+                                                <th class="py-2.5 text-center">Qty</th>
+                                                <th class="py-2.5 text-right">Unit Cost</th>
+                                                <th class="py-2.5 text-right">Subtotal</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="divide-y divide-gray-100">
+                                            <?php 
+                                            $partsTotal = 0.0;
+                                            foreach ($repairParts as $p): 
+                                                $sub = (int)$p['quantity'] * (float)$p['unit_cost'];
+                                                $partsTotal += $sub;
+                                            ?>
+                                                <tr>
+                                                    <td class="py-2.5">
+                                                        <span class="inline-flex px-2 py-0.5 rounded text-[10px] font-bold <?php echo $p['line_type'] === 'labour' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'; ?>">
+                                                            <?php echo strtoupper($p['line_type']); ?>
+                                                        </span>
+                                                    </td>
+                                                    <td class="py-2.5 font-medium text-gray-800"><?php echo rp_e($p['description']); ?></td>
+                                                    <td class="py-2.5 text-center"><?php echo (int)$p['quantity']; ?></td>
+                                                    <td class="py-2.5 text-right font-mono">Rs. <?php echo number_format((float)$p['unit_cost'], 2); ?></td>
+                                                    <td class="py-2.5 text-right font-mono font-bold">Rs. <?php echo number_format($sub, 2); ?></td>
+                                                </tr>
+                                            <?php endforeach; ?>
+                                        </tbody>
+                                        <tfoot>
+                                            <tr class="border-t-2 border-gray-200 font-bold">
+                                                <td colspan="4" class="py-3 text-right text-gray-700">Total Parts &amp; Labour:</td>
+                                                <td class="py-3 text-right font-mono text-sm text-brand-red">Rs. <?php echo number_format($partsTotal, 2); ?></td>
+                                            </tr>
+                                        </tfoot>
+                                    </table>
+                                </div>
+                            <?php endif; ?>
                         </div>
                     </div>
 

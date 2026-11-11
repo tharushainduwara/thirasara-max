@@ -494,7 +494,7 @@ foreach ($specifications as $spec) {
                         <i data-lucide="shield-check" class="w-6 h-6 text-brand-red"></i>
                         <h3 class="mt-4 font-extrabold text-gray-900">Warranty Support</h3>
                         <p class="mt-2 text-sm leading-6 text-gray-500">
-                            Warranty information is provided according to the product record.
+                            Official <?php echo (int) $product['warranty_period_months']; ?> Months Store Warranty. <?php echo !empty($product['is_repairable']) ? 'Covers certified hardware repair.' : 'Covers 1-to-1 brand new replacement exchange.'; ?>
                         </p>
                     </div>
 
@@ -503,8 +503,8 @@ foreach ($specifications as $spec) {
                         <h3 class="mt-4 font-extrabold text-gray-900">Repair Support</h3>
                         <p class="mt-2 text-sm leading-6 text-gray-500">
                             <?php echo !empty($product['is_repairable'])
-                                ? 'This product is marked as repairable in our system.'
-                                : 'Repair availability depends on the product and service requirements.'; ?>
+                                ? 'Certified Serviceable Device: Hardware diagnostics, component replacement, and technician repairs are supported under warranty.'
+                                : 'Non-Repairable Accessory: This item cannot be repaired. If defective within its warranty period, you get an immediate 1-to-1 replacement with a new unit!'; ?>
                         </p>
                     </div>
 

@@ -48,7 +48,7 @@ function _sidebarSection(string $label): void
 
 /* Live badge counts  (low-stock, pending orders, pending repairs) */
 
-$_badges = ['low_stock' => 0, 'pending_orders' => 0, 'pending_repairs' => 0, 'pending_inquiries' => 0];
+$_badges = ['low_stock' => 0, 'pending_orders' => 0, 'pending_repairs' => 0, 'pending_inquiries' => 0, 'notifications' => 0];
 
 try {
     $pdo = Database::getConnection();
@@ -58,7 +58,6 @@ try {
         SELECT COUNT(*) AS cnt
         FROM inventory
         WHERE stock_quantity <= low_stock_threshold
-          AND stock_quantity > 0
     ")->fetch(PDO::FETCH_ASSOC);
     $_badges['low_stock'] = (int) ($row['cnt'] ?? 0);
 
@@ -85,6 +84,16 @@ try {
         WHERE status = 'pending'
     ")->fetch(PDO::FETCH_ASSOC);
     $_badges['pending_inquiries'] = (int) ($row['cnt'] ?? 0);
+
+    /* Unread notifications */
+    $uid_val = (int) ($_sidebarUser['id'] ?? 0);
+    $row = $pdo->query("
+        SELECT COUNT(*) AS cnt
+        FROM notifications
+        WHERE (user_id IS NULL OR user_id = {$uid_val})
+          AND is_read = 0
+    ")->fetch(PDO::FETCH_ASSOC);
+    $_badges['notifications'] = (int) ($row['cnt'] ?? 0);
 } catch (Throwable $e) {
     /* Silently ignore — badges just won't show */
 }
@@ -148,6 +157,14 @@ $_sidebarScript === $file && $_sidebarDir === 'admin';
             'layout-dashboard',
             'Dashboard',
             $_isPage('dashboard.php')
+        ); ?>
+
+        <?php _sidebarLink(
+            APP_URL . '/admin/notifications.php',
+            'bell',
+            'Alerts & Notices',
+            $_isPage('notifications.php'),
+            $_badges['notifications']
         ); ?>
 
 

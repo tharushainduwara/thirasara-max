@@ -196,9 +196,12 @@ $pageTitle = 'Manage Users';
                         <h1 class="text-2xl font-extrabold text-gray-900 tracking-tight">Users &amp; Staff Management</h1>
                         <p class="text-sm text-gray-500 mt-0.5">Manage customer accounts, technician permissions, and staff credentials.</p>
                     </div>
-                    <div>
-                        <a href="<?php echo APP_URL; ?>/admin/users/add-staff.php" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand-red text-white text-xs font-bold uppercase tracking-wider shadow-sm transition hover:bg-brand-redHover">
-                            <i data-lucide="user-plus" class="w-4 h-4"></i> Add Staff / Technician
+                    <div class="flex flex-wrap items-center gap-2.5">
+                        <a href="<?php echo APP_URL; ?>/admin/users/add-customer.php" class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-gray-300 bg-white hover:bg-gray-50 text-gray-800 text-xs font-bold uppercase tracking-wider shadow-sm transition">
+                            <i data-lucide="user-plus" class="w-4 h-4 text-brand-red"></i> Register In-Store Customer
+                        </a>
+                        <a href="<?php echo APP_URL; ?>/admin/users/add-staff.php" class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-brand-red text-white text-xs font-bold uppercase tracking-wider shadow-sm transition hover:bg-brand-redHover">
+                            <i data-lucide="shield" class="w-4 h-4"></i> Add Staff / Technician
                         </a>
                     </div>
                 </div>
@@ -301,19 +304,27 @@ $pageTitle = 'Manage Users';
 
                                             <!-- Actions -->
                                             <td class="py-3.5 px-5 text-right">
-                                                <?php if ($u['id'] !== $uid): ?>
-                                                    <form method="post" class="inline-block" onsubmit="return confirm('Change status for this user?');">
-                                                        <?php echo rp_csrf_field(); ?>
-                                                        <input type="hidden" name="action" value="toggle_status">
-                                                        <input type="hidden" name="user_id" value="<?php echo (int)$u['id']; ?>">
-                                                        <input type="hidden" name="status" value="<?php echo rp_e($u['status'] ?? 'active'); ?>">
-                                                        <button type="submit" class="px-3 py-1.5 rounded-xl bg-gray-100 hover:bg-brand-red hover:text-white text-gray-700 text-xs font-semibold transition">
-                                                            <?php echo ($u['status'] ?? 'active') === 'active' ? 'Deactivate' : 'Activate'; ?>
-                                                        </button>
-                                                    </form>
-                                                <?php else: ?>
-                                                    <span class="text-xs text-gray-400 italic">Current Admin</span>
-                                                <?php endif; ?>
+                                                <div class="flex items-center justify-end gap-2">
+                                                    <a href="view.php?id=<?php echo (int)$u['id']; ?>" title="View Profile" class="p-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 transition">
+                                                        <i data-lucide="eye" class="w-3.5 h-3.5"></i>
+                                                    </a>
+                                                    <a href="edit.php?id=<?php echo (int)$u['id']; ?>" title="Edit Account" class="p-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 transition">
+                                                        <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+                                                    </a>
+                                                    <?php if ($u['id'] !== $uid): ?>
+                                                        <form method="post" class="inline-block" onsubmit="return confirm('Change status for this user?');">
+                                                            <?php echo rp_csrf_field(); ?>
+                                                            <input type="hidden" name="action" value="toggle_status">
+                                                            <input type="hidden" name="user_id" value="<?php echo (int)$u['id']; ?>">
+                                                            <input type="hidden" name="status" value="<?php echo rp_e($u['status'] ?? 'active'); ?>">
+                                                            <button type="submit" class="px-2.5 py-1.5 rounded-lg bg-gray-100 hover:bg-brand-red hover:text-white text-gray-700 text-xs font-semibold transition">
+                                                                <?php echo ($u['status'] ?? 'active') === 'active' ? 'Deactivate' : 'Activate'; ?>
+                                                            </button>
+                                                        </form>
+                                                    <?php else: ?>
+                                                        <span class="text-[11px] text-gray-400 italic">You</span>
+                                                    <?php endif; ?>
+                                                </div>
                                             </td>
                                         </tr>
                                     <?php endforeach; ?>

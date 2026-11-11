@@ -19,6 +19,16 @@ if (!empty($_SESSION['cart']) && is_array($_SESSION['cart'])) {
     }
 }
 
+$notifCount = 0;
+if ($currentUser) {
+    try {
+        $pdo_hdr = Database::getConnection();
+        $nst = $pdo_hdr->prepare("SELECT COUNT(*) FROM notifications WHERE user_id = ? AND is_read = 0");
+        $nst->execute([(int)$currentUser['id']]);
+        $notifCount = (int)$nst->fetchColumn();
+    } catch (Throwable $e) {}
+}
+
 $currentScript = basename($_SERVER['PHP_SELF']);
 ?>
 <!DOCTYPE html>
@@ -120,6 +130,18 @@ $currentScript = basename($_SERVER['PHP_SELF']);
                 <!-- Right Side Actions -->
                 <div class="flex items-center space-x-3 sm:space-x-4">
 
+                    <!-- Notifications Bell -->
+                    <?php if ($currentUser): ?>
+                        <a href="<?= APP_URL ?>/customer/notifications.php" class="relative p-2 text-gray-300 hover:text-white transition-colors" title="Notifications">
+                            <i data-lucide="bell" class="w-5 h-5"></i>
+                            <?php if ($notifCount > 0): ?>
+                                <span class="absolute -top-0.5 -right-0.5 min-w-4 h-4 px-1 bg-brand-red text-white text-[10px] font-bold rounded-full flex items-center justify-center ring-2 ring-brand-dark animate-pulse">
+                                    <?= $notifCount ?>
+                                </span>
+                            <?php endif; ?>
+                        </a>
+                    <?php endif; ?>
+
                     <!-- Shopping Cart Icon -->
                     <a href="<?= APP_URL ?>/cart.php" class="relative p-2 text-gray-300 hover:text-white transition-colors" title="Shopping Cart">
                         <i data-lucide="shopping-bag" class="w-5 h-5"></i>
@@ -194,9 +216,24 @@ $currentScript = basename($_SERVER['PHP_SELF']);
 
                     <a href="<?= APP_URL ?>/repair-track.php"
                         class="flex items-center gap-3 px-3 py-3 rounded-lg text-sm <?= $currentScript === 'repair-track.php' ? 'text-white bg-white/5' : 'text-gray-300 hover:text-white hover:bg-white/5' ?>">
-                        <i data-lucide="shield-check" class="w-4 h-4"></i>
+                        <i data-lucide="wrench" class="w-4 h-4"></i>
                         Track Repair
                     </a>
+
+                    <?php if ($currentUser): ?>
+                        <a href="<?= APP_URL ?>/customer/notifications.php"
+                            class="flex items-center justify-between px-3 py-3 rounded-lg text-sm <?= $currentScript === 'notifications.php' ? 'text-white bg-white/5' : 'text-gray-300 hover:text-white hover:bg-white/5' ?>">
+                            <span class="flex items-center gap-3">
+                                <i data-lucide="bell" class="w-4 h-4 text-brand-red"></i>
+                                Notifications
+                            </span>
+                            <?php if ($notifCount > 0): ?>
+                                <span class="px-2 py-0.5 bg-brand-red text-white text-[10px] font-bold rounded-full">
+                                    <?= $notifCount ?>
+                                </span>
+                            <?php endif; ?>
+                        </a>
+                    <?php endif; ?>
 
                     <!-- Mobile User Section -->
                     <?php if ($currentUser): ?>

@@ -5,6 +5,9 @@ require_once __DIR__ . '/../../config/database.php';
 require_once __DIR__ . '/../../includes/auth.php';
 require_once __DIR__ . '/../../includes/functions.php';
 require_once __DIR__ . '/../../includes/mailer.php';
+require_once __DIR__ . '/../../includes/warranty_helpers.php';
+require_once __DIR__ . '/../../includes/inventory_helpers.php';
+require_once __DIR__ . '/../../includes/invoice_generator.php';
 
 requireAuth(['admin']);
 
@@ -60,6 +63,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     setFlash('error', 'Invalid payment status selected.');
                 } else {
                     try {
+                        // Check previous status for inventory replenishment
+                        $prevStmt = $pdo->prepare("SELECT order_status, payment_status FROM orders WHERE id = ?");
+                        $prevStmt->execute([$targetOrderId]);
+                        $prevOrder = $prevStmt->fetch(PDO::FETCH_ASSOC);
+
+                        if ($prevOrder && $newOrderStatus === 'cancelled' && $prevOrder['order_status'] !== 'cancelled') {
+                            $itemsQuery = $pdo->prepare("SELECT product_id, quantity FROM order_items WHERE order_id = ?");
+                            $itemsQuery->execute([$targetOrderId]);
+                            $cItems = $itemsQuery->fetchAll(PDO::FETCH_ASSOC);
+
+                            foreach ($cItems as $ci) {
+                                $cProdId = (int) $ci['product_id'];
+                                $cQty = (int) $ci['quantity'];
+                                if ($cProdId > 0 && $cQty > 0) {
+                                    adjustStock($pdo, $cProdId, $cQty, 'return', "Admin order cancellation #{$targetOrderId}", (int)($currentUser['id'] ?? 0));
+                                }
+                            }
+                        }
                         $updateStmt = $pdo->prepare("
                             UPDATE orders SET
                                 order_status   = :order_status,
@@ -160,6 +181,7 @@ try {
     }
 
     $orderId = (int) $order['id'];
+    ensureOrderWarranties($pdo, $orderId);
 
     /* ── Fetch Order Items ─────────────────────────────────────────── */
     $itemsStmt = $pdo->prepare("
@@ -194,6 +216,44 @@ try {
     ");
     $invStmt->execute([$orderId]);
     $invoice = $invStmt->fetch(PDO::FETCH_ASSOC);
+    if ($invoice) {
+        $order['invoice_number'] = $invoice['invoice_number'];
+    }
+
+    // Handle PDF Download
+    if (isset($_GET['download']) && $_GET['download'] === 'pdf') {
+        if (empty($order['invoice_number'])) {
+            $invCandidate = 'INV-' . date('Ymd', strtotime($order['created_at'])) . '-' . sprintf('%04d', $orderId);
+            try {
+                $insertInv = $pdo->prepare("
+                    INSERT INTO invoices (invoice_number, order_id, invoice_type, total_amount)
+                    VALUES (?, ?, 'order', ?)
+                    ON DUPLICATE KEY UPDATE id=id
+                ");
+                $insertInv->execute([$invCandidate, $orderId, $order['total_amount']]);
+                $order['invoice_number'] = $invCandidate;
+            } catch (Throwable $e) {
+                $order['invoice_number'] = $invCandidate;
+            }
+        }
+
+        $tempPdfPath = generateInvoicePdf($orderId, $order, $orderItems, $payment ?: []);
+        if ($tempPdfPath && file_exists($tempPdfPath)) {
+            $downloadFileName = 'Invoice-' . $order['order_number'] . '.pdf';
+            header('Content-Type: application/pdf');
+            header('Content-Disposition: attachment; filename="' . $downloadFileName . '"');
+            header('Content-Length: ' . filesize($tempPdfPath));
+            header('Cache-Control: private, max-age=0, must-revalidate');
+            header('Pragma: public');
+            readfile($tempPdfPath);
+            @unlink($tempPdfPath);
+            exit;
+        } else {
+            setFlash('error', 'Unable to generate PDF invoice at this moment.');
+            header('Location: ' . APP_URL . '/admin/orders/view.php?id=' . $orderId);
+            exit;
+        }
+    }
 } catch (PDOException $e) {
     error_log('Admin order view query error: ' . $e->getMessage());
     setFlash('error', 'Database error loading order details.');
@@ -391,6 +451,11 @@ function paymentBadge(string $status): string
                 </div>
 
                 <div class="flex items-center gap-3">
+                    <a href="<?php echo APP_URL; ?>/admin/orders/view.php?id=<?php echo (int)$order['id']; ?>&download=pdf"
+                        class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-brand-red hover:bg-brand-redHover text-white text-xs font-semibold transition shadow-sm">
+                        <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                        <span>Download PDF</span>
+                    </a>
                     <button type="button" onclick="window.print()"
                         class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gray-900 hover:bg-gray-800 text-white text-xs font-semibold transition shadow-sm">
                         <i data-lucide="printer" class="w-3.5 h-3.5"></i>

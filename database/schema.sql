@@ -131,6 +131,8 @@ CREATE TABLE IF NOT EXISTS `repairs` (
     `repair_code` VARCHAR(50) NOT NULL,
     `user_id` INT NOT NULL,
     `technician_id` INT NULL,
+    `product_id` INT NULL,
+    `order_item_id` INT NULL,
     `device_model` VARCHAR(150) NOT NULL,
     `serial_or_imei` VARCHAR(100) NULL,
     `issue_description` TEXT NOT NULL,
@@ -147,9 +149,35 @@ CREATE TABLE IF NOT EXISTS `repairs` (
     UNIQUE KEY `repair_code` (`repair_code`),
     KEY `user_id` (`user_id`),
     KEY `technician_id` (`technician_id`),
+    KEY `product_id` (`product_id`),
+    KEY `order_item_id` (`order_item_id`),
     CONSTRAINT `repairs_ibfk_1` FOREIGN KEY (`user_id`)
         REFERENCES `users`(`id`) ON DELETE CASCADE,
     CONSTRAINT `repairs_ibfk_2` FOREIGN KEY (`technician_id`)
+        REFERENCES `users`(`id`) ON DELETE SET NULL,
+    CONSTRAINT `repairs_ibfk_3` FOREIGN KEY (`product_id`)
+        REFERENCES `products`(`id`) ON DELETE SET NULL,
+    CONSTRAINT `repairs_ibfk_4` FOREIGN KEY (`order_item_id`)
+        REFERENCES `order_items`(`id`) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+-- ------------------------------------------------------------------------------
+-- 8.1 REPAIR_PARTS TABLE (Parts & Labour Line Items for Repairs)
+-- ------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `repair_parts` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `repair_id` INT NOT NULL,
+    `line_type` ENUM('part', 'labour') NOT NULL DEFAULT 'part',
+    `description` VARCHAR(255) NOT NULL,
+    `quantity` INT NOT NULL DEFAULT 1,
+    `unit_cost` DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    `created_by` INT NULL,
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    KEY `idx_repair_parts_repair` (`repair_id`),
+    KEY `idx_repair_parts_creator` (`created_by`),
+    CONSTRAINT `fk_repair_parts_repair` FOREIGN KEY (`repair_id`)
+        REFERENCES `repairs`(`id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_repair_parts_creator` FOREIGN KEY (`created_by`)
         REFERENCES `users`(`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
@@ -273,4 +301,22 @@ CREATE TABLE IF NOT EXISTS `password_resets` (
     KEY `user_id` (`user_id`),
     CONSTRAINT `password_resets_ibfk_1` FOREIGN KEY (`user_id`)
         REFERENCES `users`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+
+-- ------------------------------------------------------------------------------
+-- 15. INVENTORY_LOGS TABLE (Stock Movements & Restock Audit Trail)
+-- ------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `inventory_logs` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `product_id` INT NOT NULL,
+    `change_type` ENUM('restock', 'adjustment', 'order_sale', 'repair_part', 'return') NOT NULL DEFAULT 'restock',
+    `quantity_change` INT NOT NULL,
+    `resulting_stock` INT NOT NULL,
+    `notes` VARCHAR(255) NULL,
+    `user_id` INT NULL,
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    KEY `idx_inv_product` (`product_id`),
+    CONSTRAINT `fk_inv_logs_product` FOREIGN KEY (`product_id`)
+        REFERENCES `products`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB;

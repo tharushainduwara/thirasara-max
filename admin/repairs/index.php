@@ -131,9 +131,14 @@ $pageTitle = 'Manage Repairs';
                         <p class="text-sm text-gray-500 mt-0.5">View, assign, and update all customer repair bookings.</p>
                     </div>
                     <div>
+                        <div class="flex items-center gap-2.5">
+                        <a href="<?php echo APP_URL; ?>/admin/repairs/add.php" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand-red hover:bg-brand-redHover text-white font-bold text-xs transition shadow-sm">
+                            <i data-lucide="plus-circle" class="w-4 h-4"></i> New Repair Intake
+                        </a>
                         <a href="<?php echo APP_URL; ?>/admin/reports/repairs-report.php" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-gray-200 text-gray-700 font-bold text-xs hover:bg-gray-50 transition shadow-sm">
                             <i data-lucide="bar-chart-2" class="w-4 h-4 text-brand-red"></i> Repairs Report
                         </a>
+                    </div>
                     </div>
                 </div>
 

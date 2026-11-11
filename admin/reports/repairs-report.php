@@ -7,6 +7,7 @@ require_once __DIR__ . '/../../config/database.php';
 require_once __DIR__ . '/../../includes/auth.php';
 require_once __DIR__ . '/../../includes/functions.php';
 require_once __DIR__ . '/../../includes/repair_helpers.php';
+require_once __DIR__ . '/../../includes/pdf.php';
 
 requireAuth(['admin']);
 
@@ -37,6 +38,99 @@ $recentStmt = $pdo->query("
     LIMIT 10
 ");
 $recentCompleted = $recentStmt->fetchAll(PDO::FETCH_ASSOC);
+
+// CSV Export Handler
+if (($_GET['export'] ?? '') === 'csv') {
+    $allRepairsStmt = $pdo->query("
+        SELECT r.repair_code, r.device_model, r.serial_or_imei, r.repair_status,
+               r.estimated_cost, r.final_cost, r.is_warranty_covered,
+               r.created_at, r.completed_at,
+               u.name AS customer_name, u.phone AS customer_phone,
+               tech.name AS technician_name
+        FROM repairs r
+        JOIN users u ON u.id = r.user_id
+        LEFT JOIN users tech ON tech.id = r.technician_id
+        ORDER BY r.created_at DESC
+    ");
+    $repairsList = $allRepairsStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename="repairs_report_' . date('Ymd_His') . '.csv"');
+    $out = fopen('php://output', 'w');
+    fputcsv($out, [
+        'Repair Code',
+        'Customer Name',
+        'Phone',
+        'Device Model',
+        'Serial / IMEI',
+        'Status',
+        'Technician',
+        'Warranty Covered',
+        'Estimated Cost (LKR)',
+        'Final Cost (LKR)',
+        'Booked Date',
+        'Completed Date'
+    ]);
+
+    foreach ($repairsList as $row) {
+        fputcsv($out, [
+            $row['repair_code'],
+            $row['customer_name'],
+            $row['customer_phone'] ?? '',
+            $row['device_model'],
+            $row['serial_or_imei'] ?? '',
+            ucfirst(str_replace('_', ' ', $row['repair_status'])),
+            $row['technician_name'] ?? 'Unassigned',
+            $row['is_warranty_covered'] ? 'Yes' : 'No',
+            number_format((float)$row['estimated_cost'], 2, '.', ''),
+            number_format((float)$row['final_cost'], 2, '.', ''),
+            $row['created_at'],
+            $row['completed_at'] ?? ''
+        ]);
+    }
+    fclose($out);
+    exit;
+}
+if (($_GET['export'] ?? '') === 'pdf') {
+    $pdfHtml = "<!DOCTYPE html><html><head><meta charset='utf-8'><style>
+    body { font-family: 'DejaVu Sans', sans-serif; font-size: 11px; color: #1f2937; margin: 20px; }
+    .header { border-bottom: 2px solid #e52b34; padding-bottom: 10px; margin-bottom: 20px; }
+    .header h1 { font-size: 20px; color: #e52b34; margin: 0; }
+    table.kpi { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+    table.kpi td { padding: 10px; background: #f9fafb; border: 1px solid #e5e7eb; text-align: center; font-size: 10px; }
+    .val { font-size: 16px; font-weight: bold; color: #111827; }
+    table.data { width: 100%; border-collapse: collapse; margin-top: 15px; }
+    table.data th { background: #111827; color: #fff; padding: 7px 8px; font-size: 9px; text-align: left; }
+    table.data td { padding: 7px 8px; border-bottom: 1px solid #e5e7eb; font-size: 10px; }
+    .text-right { text-align: right; }
+    </style></head><body>
+    <div class='header'>
+        <h1>THIRASARA MAX MOBILE - REPAIRS & SERVICE REPORT</h1>
+        <div style='font-size: 10px; color: #6b7280; margin-top: 4px;'>Generated: " . date('d M Y, h:i A') . "</div>
+    </div>
+    <table class='kpi'><tr>
+        <td><div>Total Bookings</div><div class='val'>" . (int)($stats['total_repairs'] ?? 0) . "</div></td>
+        <td><div>Completed Jobs</div><div class='val'>" . (int)($stats['count_completed'] ?? 0) . "</div></td>
+        <td><div>Active Repairs</div><div class='val'>" . ((int)($stats['count_pending'] ?? 0) + (int)($stats['count_assigned'] ?? 0) + (int)($stats['count_in_progress'] ?? 0)) . "</div></td>
+        <td><div>Service Revenue</div><div class='val'>Rs. " . number_format((float)($stats['total_revenue'] ?? 0), 2) . "</div></td>
+    </tr></table>
+    <h3 style='font-size: 12px; margin: 20px 0 5px;'>Recent Completed Repairs</h3>
+    <table class='data'><thead><tr>
+        <th>Repair Code</th><th>Customer</th><th>Device</th><th>Completed Date</th><th class='text-right'>Cost</th>
+    </tr></thead><tbody>";
+    foreach ($recentCompleted as $rc) {
+        $pdfHtml .= "<tr>
+            <td><strong>" . htmlspecialchars($rc['repair_code']) . "</strong></td>
+            <td>" . htmlspecialchars($rc['customer_name']) . "</td>
+            <td>" . htmlspecialchars($rc['device_model']) . "</td>
+            <td>" . date('d M Y, h:i A', strtotime($rc['completed_at'])) . "</td>
+            <td class='text-right font-bold'>Rs. " . number_format((float)$rc['final_cost'], 2) . "</td>
+        </tr>";
+    }
+    $pdfHtml .= "</tbody></table></body></html>";
+    streamPdf($pdfHtml, 'Repairs_Report_' . date('Ymd') . '.pdf', false, 'A4', 'portrait');
+    exit;
+}
 
 $pageTitle = 'Repairs Report';
 ?>
@@ -107,8 +201,14 @@ $pageTitle = 'Repairs Report';
                         <p class="text-sm text-gray-500 mt-0.5">Overview of service status, technician performance, and total revenue.</p>
                     </div>
                     <div>
-                        <a href="<?php echo APP_URL; ?>/admin/repairs/index.php" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-gray-700 font-bold text-xs hover:bg-gray-50 transition shadow-sm">
-                            <i data-lucide="arrow-left" class="w-4 h-4"></i> Back to Repairs
+                        <a href="<?php echo APP_URL; ?>/admin/reports/repairs-report.php?export=pdf" target="_blank" class="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-gray-900 text-white font-bold text-xs hover:bg-black transition shadow-sm mr-2">
+                            <i data-lucide="file-text" class="w-4 h-4"></i> Export PDF
+                        </a>
+                        <a href="<?php echo APP_URL; ?>/admin/reports/repairs-report.php?export=csv" class="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-gray-200 bg-white text-gray-700 font-bold text-xs hover:bg-gray-50 transition shadow-sm mr-2">
+                            <i data-lucide="download" class="w-4 h-4"></i> Export CSV
+                        </a>
+                        <a href="<?php echo APP_URL; ?>/admin/reports/index.php" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-gray-700 font-bold text-xs hover:bg-gray-50 transition shadow-sm">
+                            <i data-lucide="arrow-left" class="w-4 h-4"></i> Reports Hub
                         </a>
                     </div>
                 </div>
